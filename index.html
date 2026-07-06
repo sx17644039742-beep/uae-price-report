@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Phone Price Intelligence · Xiaomi / Samsung / Honor</title>
+<style>
+  :root {
+    --xiaomi-1: #ff9a3d;
+    --xiaomi-2: #ff2e88;
+    --samsung-1: #3ea6ff;
+    --samsung-2: #7c5cff;
+    --honor-1: #00f5d4;
+    --honor-2: #00b4ff;
+    --bg-0: #05070f;
+    --bg-1: #0a0e1c;
+    --panel: rgba(255,255,255,0.045);
+    --panel-strong: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.09);
+    --text: #eef0fb;
+    --muted: #8b93b8;
+    --accent-1: #7c3aed;
+    --accent-2: #22d3ee;
+    --up: #ff5d7a;
+    --down: #33e2a0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+    background:
+      radial-gradient(circle at 12% -8%, rgba(124,58,237,0.35), transparent 42%),
+      radial-gradient(circle at 92% 8%, rgba(34,211,238,0.22), transparent 40%),
+      radial-gradient(circle at 50% 110%, rgba(255,46,136,0.16), transparent 45%),
+      var(--bg-0);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header { padding: 34px 36px 22px; position: relative; }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: 25px;
+    letter-spacing: 0.3px;
+    background: linear-gradient(90deg, #ffffff, #b9c2ff 45%, #7be8ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 30px rgba(124,58,237,0.25);
+  }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+
+  .container { max-width: 1360px; margin: 0 auto; padding: 6px 32px 70px; }
+
+  .glow-card {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 18px 40px -22px rgba(0,0,0,0.7);
+  }
+  /* backdrop-filter creates its own stacking context, so an open dropdown's
+     z-index (below) only wins against LATER sibling cards if its own card is
+     bumped above them too — see syncElevatedCard() in the script. */
+  .glow-card.ms-elevated { z-index: 500; }
+
+  /* KPI strip */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    position: relative;
+    border-radius: 16px;
+    padding: 18px 20px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01));
+  }
+  .kpi-card::before {
+    content: "";
+    position: absolute; inset: -40%;
+    background: radial-gradient(circle, var(--glow-color, rgba(124,58,237,0.55)), transparent 60%);
+    opacity: 0.5;
+    filter: blur(6px);
+  }
+  .kpi-card.total { --glow-color: rgba(124,58,237,0.55); }
+  .kpi-card.brands { --glow-color: rgba(34,211,238,0.5); }
+  .kpi-card.lowest { --glow-color: rgba(255,93,122,0.5); }
+  .kpi-card.avg { --glow-color: rgba(51,226,160,0.45); }
+  .kpi-card .kpi-inner { position: relative; z-index: 1; }
+  .kpi-card .kpi-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.6px; text-transform: uppercase; }
+  .kpi-card .kpi-value { font-size: 30px; font-weight: 700; line-height: 1; color: #fff; }
+  .kpi-card .kpi-value .unit { font-size: 12px; font-weight: 400; opacity: 0.7; margin-left: 5px; }
+  .kpi-card .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 9px; }
+
+  /* Brand summary cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  .brand-card {
+    padding: 18px 20px;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .brand-card:hover { transform: translateY(-2px); }
+  .brand-card::before {
+    content: "";
+    position: absolute; top: 0; left: 14px; right: 14px; height: 2px; border-radius: 2px;
+  }
+  .brand-card.Xiaomi::before { background: linear-gradient(90deg, var(--xiaomi-1), var(--xiaomi-2)); box-shadow: 0 0 12px var(--xiaomi-2); }
+  .brand-card.Samsung::before { background: linear-gradient(90deg, var(--samsung-1), var(--samsung-2)); box-shadow: 0 0 12px var(--samsung-2); }
+  .brand-card.Honor::before { background: linear-gradient(90deg, var(--honor-1), var(--honor-2)); box-shadow: 0 0 12px var(--honor-2); }
+  .brand-card.is-active { border-color: rgba(255,255,255,0.35); box-shadow: 0 0 0 1px rgba(255,255,255,0.2), 0 0 30px -6px rgba(124,58,237,0.6); }
+  .brand-card h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; color: #fff; }
+  .brand-card .price-row { font-size: 25px; font-weight: 700; margin-bottom: 4px; color: #fff; }
+  .brand-card .sub { font-size: 12px; color: var(--muted); line-height: 1.8; }
+  .brand-card a { color: #9db4ff; text-decoration: none; }
+  .brand-card a:hover { text-decoration: underline; }
+  .brand-card .hint { font-size: 10px; color: #5c6488; margin-top: 8px; }
+
+  .panel { padding: 20px; margin-bottom: 22px; }
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .panel h2 { margin: 0; font-size: 15px; font-weight: 600; color: #fff; }
+  .panel .panel-note { font-size: 11px; color: var(--muted); }
+  .badge-demo {
+    display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 20px;
+    background: rgba(255,93,122,0.15); color: #ff9db0; border: 1px solid rgba(255,93,122,0.35);
+    margin-left: 8px; text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .chart-wrap { max-width: 780px; margin: 0 auto; height: 300px; }
+  .chart-wrap.wide { max-width: 100%; }
+
+  /* Trend chart (left) + Xiaomi cross-platform bar chart (right) side by side */
+  .split-row { display: flex; gap: 20px; align-items: stretch; margin-bottom: 22px; flex-wrap: wrap; }
+  .split-row .glow-card.panel { margin-bottom: 0; }
+  .trend-panel { flex: 1 1 380px; max-width: 46%; }
+  .compare-panel { flex: 1.3 1 460px; }
+  @media (max-width: 900px) {
+    .trend-panel, .compare-panel { max-width: 100%; flex-basis: 100%; }
+  }
+
+  /* Xiaomi cross-platform price-gap bar chart */
+  .compare-chart-wrap { max-height: 360px; overflow-y: auto; padding-right: 6px; }
+  .xcompare-row { margin-bottom: 16px; }
+  .xcompare-row:last-child { margin-bottom: 0; }
+  .xcompare-label { font-size: 12px; color: #c7cce6; margin-bottom: 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .xcompare-bar-line { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .xcompare-bar-tag { width: 56px; flex-shrink: 0; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .xcompare-bar-track { flex: 1; background: rgba(255,255,255,0.05); border-radius: 6px; height: 18px; position: relative; overflow: hidden; }
+  .xcompare-bar-fill { height: 100%; border-radius: 6px; min-width: 2px; }
+  .xcompare-bar-fill.noon { background: linear-gradient(90deg, #0891b2, #7fe6f7); }
+  .xcompare-bar-fill.amazon { background: linear-gradient(90deg, #cc7a00, #ffb03d); }
+  .xcompare-price { font-size: 11.5px; min-width: 108px; color: var(--text); flex-shrink: 0; }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; padding: 16px 18px; margin-bottom: 16px;
+  }
+  .filter-field { display: flex; flex-direction: column; gap: 6px; min-width: 190px; }
+  .filter-field label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); font-weight: 600; }
+  .filter-field select {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    cursor: pointer;
+    min-width: 190px;
+  }
+  .filter-field select:focus { outline: none; border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(34,211,238,0.2); }
+  .filter-field option { background: #10131f; color: var(--text); }
+  .filter-bar .spacer { flex: 1; }
+  .filter-bar .reset-btn {
+    border: 1px solid rgba(124,58,237,0.5);
+    background: linear-gradient(135deg, rgba(124,58,237,0.85), rgba(34,211,238,0.55));
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 0 18px -4px rgba(124,58,237,0.7);
+  }
+  .filter-bar .result-count { font-size: 12px; color: var(--muted); align-self: center; }
+
+  /* Multi-select dropdown with search */
+  .quick-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .quick-filter-hint { align-self: center; font-style: italic; }
+  .ms-wrap { position: relative; min-width: 200px; }
+  .ms-button {
+    width: 100%; box-sizing: border-box; text-align: left;
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+    font-size: 13px; background: rgba(255,255,255,0.04); color: var(--text); cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ms-button:hover { border-color: var(--accent-2); }
+  .ms-caret { font-size: 9px; color: var(--muted); flex-shrink: 0; }
+  .ms-panel {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+    background: #10131f; border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 20px 44px -14px rgba(0,0,0,0.7);
+    width: 260px; padding: 10px;
+  }
+  .ms-panel[hidden] { display: none; }
+  .ms-search input {
+    width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12.5px; background: rgba(255,255,255,0.05); color: var(--text); margin-bottom: 8px;
+  }
+  .ms-search input:focus { outline: none; border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(34,211,238,0.18); }
+  .ms-actions { display: flex; gap: 8px; margin-bottom: 8px; }
+  .ms-actions button {
+    flex: 1; font-size: 11px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03); color: var(--muted); cursor: pointer;
+  }
+  .ms-actions button:hover { color: #fff; border-color: var(--accent-2); }
+  .ms-options { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  .ms-option {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 12.5px;
+  }
+  .ms-option:hover { background: rgba(255,255,255,0.06); }
+  .ms-option input { accent-color: var(--accent-1); cursor: pointer; }
+  .ms-empty { padding: 10px 4px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left;
+    background: rgba(255,255,255,0.03);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    padding: 12px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+  thead th:hover { color: #fff; }
+  tbody td {
+    padding: 12px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    vertical-align: middle;
+    color: var(--text);
+  }
+  tbody tr:hover { background: rgba(255,255,255,0.03); }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #06070d;
+  }
+  .badge.Xiaomi { background: linear-gradient(90deg, var(--xiaomi-1), var(--xiaomi-2)); color: #1a0a06; }
+  .badge.Samsung { background: linear-gradient(90deg, var(--samsung-1), var(--samsung-2)); color: #060a1a; }
+  .badge.Honor { background: linear-gradient(90deg, var(--honor-1), var(--honor-2)); color: #04201c; }
+  .product-name { font-weight: 600; color: #fff; }
+  .price-main { font-weight: 700; color: #fff; text-shadow: 0 0 14px rgba(124,58,237,0.5); }
+  .price-old { color: var(--muted); text-decoration: line-through; font-size: 11px; margin-left: 6px; }
+  .seller { font-size: 12px; color: var(--muted); }
+  .config-line { font-size: 11.5px; color: var(--muted); }
+  .config-pill {
+    display: inline-block; background: rgba(124,58,237,0.16); color: #c9b8ff;
+    border: 1px solid rgba(124,58,237,0.35);
+    border-radius: 8px; padding: 3px 9px; font-size: 12px; font-weight: 600;
+  }
+  .platform-pill {
+    display: inline-block; background: rgba(34,211,238,0.12); color: #7fe6f7;
+    border: 1px solid rgba(34,211,238,0.3);
+    border-radius: 8px; padding: 3px 9px; font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+  }
+  .platform-pill.amazon {
+    background: rgba(255,153,0,0.14); color: #ffb03d; border-color: rgba(255,153,0,0.35);
+  }
+  a.link {
+    color: #0b0f1a; text-decoration: none; font-size: 11.5px; font-weight: 700;
+    background: linear-gradient(90deg, var(--accent-2), #6ee7ff);
+    padding: 5px 12px; border-radius: 8px;
+    box-shadow: 0 0 14px -2px rgba(34,211,238,0.7);
+  }
+  a.link:hover { filter: brightness(1.1); }
+  .empty-row td { text-align: center; color: var(--muted); padding: 34px; }
+
+  /* Benchmark table */
+  .bm-diff-up { color: var(--up); font-weight: 700; }
+  .bm-diff-down { color: var(--down); font-weight: 700; }
+  .bm-model { font-size: 12px; color: var(--muted); }
+  .bm-price { font-weight: 700; color: #fff; }
+
+  footer { text-align: center; font-size: 12px; color: var(--muted); padding: 26px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Phone Price Intelligence</h1>
+  <p id="header-sub">Xiaomi / Samsung / Honor · Lowest price across all sellers · loading data...</p>
+</header>
+
+<div class="container">
+
+  <div class="kpi-grid" id="kpi-grid"></div>
+
+  <div class="summary-grid" id="summary-grid"></div>
+
+  <div class="split-row">
+    <div class="glow-card panel trend-panel">
+      <div class="panel-head">
+        <h2>Price Trend <span id="trend-days-badge" class="badge-demo" style="display:none;"></span></h2>
+        <span class="panel-note" id="trend-note">Showing top-selling Xiaomi models</span>
+      </div>
+      <div class="quick-filter-row">
+        <div class="ms-wrap" id="ms-brand-quick"></div>
+        <div class="ms-wrap" id="ms-product-quick"></div>
+        <span class="panel-note quick-filter-hint">Only changes this chart — doesn't affect the KPIs, brand cards, or table below</span>
+      </div>
+      <div class="chart-wrap wide" id="trendChartWrap" style="height:260px;"></div>
+    </div>
+
+    <div class="glow-card panel compare-panel">
+      <div class="panel-head">
+        <h2>Xiaomi: Noon vs Amazon Price Gaps</h2>
+        <span class="panel-note" id="xiaomi-compare-note">Same model + config, different platform price</span>
+      </div>
+      <div class="quick-filter-row">
+        <div class="ms-wrap" id="ms-xiaomi-compare-product"></div>
+        <span class="panel-note quick-filter-hint">Only changes this chart — doesn't affect the KPIs, brand cards, or table below</span>
+      </div>
+      <div class="chart-wrap wide compare-chart-wrap" id="xiaomiCompareChartWrap"></div>
+    </div>
+  </div>
+
+  <div class="glow-card panel">
+    <div class="panel-head">
+      <h2>Price Comparison <span class="panel-note">(curated matching set, price = lowest across all sellers)</span></h2>
+    </div>
+    <table id="benchmark-table">
+      <thead>
+        <tr>
+          <th>Xiaomi Model</th>
+          <th>Xiaomi Price</th>
+          <th>Samsung Model</th>
+          <th>Samsung Price</th>
+          <th>Samsung vs Xiaomi</th>
+          <th>Honor Model</th>
+          <th>Honor Price</th>
+          <th>Honor vs Xiaomi</th>
+        </tr>
+      </thead>
+      <tbody id="benchmark-body"></tbody>
+    </table>
+  </div>
+
+  <div class="glow-card filter-bar">
+    <div class="filter-field">
+      <label>Platform</label>
+      <div class="ms-wrap" id="ms-platform"></div>
+    </div>
+    <div class="filter-field">
+      <label>Brand</label>
+      <div class="ms-wrap" id="ms-brand"></div>
+    </div>
+    <div class="filter-field">
+      <label>Product</label>
+      <div class="ms-wrap" id="ms-product"></div>
+    </div>
+    <button class="reset-btn" id="reset-btn">Reset Filters</button>
+    <div class="spacer"></div>
+    <span class="result-count" id="result-count"></span>
+  </div>
+
+  <div class="glow-card" style="overflow:hidden;">
+    <table>
+      <thead>
+        <tr>
+          <th data-key="platform">Platform</th>
+          <th data-key="brand">Brand</th>
+          <th data-key="model_name">Product Name</th>
+          <th data-key="ram_gb">Config</th>
+          <th data-key="lowest_price">Lowest Price</th>
+          <th data-key="lowest_seller">Seller</th>
+          <th data-key="sku">SKU</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+  <footer id="footer-note"></footer>
+</div>
+
+<script>
+const API_BASE = '';
+const EMBEDDED_DATA = {"scraped_at": "2026-07-06", "currency": "AED", "platform": "noon", "region": "UAE (uae-en)", "products": [{"id": "N70133770V", "brand": "Honor", "model_name": "Honor 200", "full_title": "Honor 200 5G Dual SIM 12GB RAM 512GB ROM Black - International Version", "sku": "N70133770V", "config": {"ram_gb": 12, "rom_gb": 512, "color": "Black", "network": "5G", "battery_mah": 5200, "screen": "6.7 in"}, "list_price": 1149.0, "old_price": null, "lowest_price": 1149, "lowest_seller": "Phones4u LLC", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Phones4u LLC", "price": 1149}], "product_url": "https://www.noon.com/uae-en/-/N70133770V/p/", "platform": "noon", "rating": 3.9, "ratings_count": 47, "bestseller_rank": null, "variant_count": 1}, {"id": "N70156486V", "brand": "Honor", "model_name": "Honor 200 Smart", "full_title": "Honor 200 Smart 5G 4GB RAM 256GB ROM Midnight Black - International Version", "sku": "N70156486V", "config": {"ram_gb": 4, "rom_gb": 256, "color": "Midnight Black", "network": "5G", "battery_mah": 5200, "screen": "6.8 in"}, "list_price": 539.0, "old_price": null, "lowest_price": 539, "lowest_seller": "Phones4u LLC", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Phones4u LLC", "price": 539}], "product_url": "https://www.noon.com/uae-en/-/N70156486V/p/", "platform": "noon", "rating": 5, "ratings_count": 2, "bestseller_rank": null, "variant_count": 1}, {"id": "N70189536V", "brand": "Honor", "model_name": "Honor 400", "full_title": "Honor 400 5G Dual SIM Midnight Black 12GB RAM 256GB - International Version", "sku": "N70189536V", "config": {"ram_gb": 12, "rom_gb": 256, "color": "Midnight Black", "network": "5G", "battery_mah": 5300, "screen": "6.55 in"}, "list_price": 1329.0, "old_price": null, "lowest_price": 1329, "lowest_seller": "TECH-WORLD", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "TECH-WORLD", "price": 1328}], "product_url": "https://www.noon.com/uae-en/-/N70189536V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 103, "bestseller_rank": null, "variant_count": 8}, {"id": "N70201108V", "brand": "Honor", "model_name": "Honor 400", "full_title": "Honor 400 5G Dual SIM 12GB RAM 512GB ROM Tidal Blue - International Version", "sku": "N70201108V", "config": {"ram_gb": 12, "rom_gb": 512, "color": "Tidal blue", "network": "5G", "battery_mah": 5300, "screen": "6.55 in"}, "list_price": 1380.0, "old_price": null, "lowest_price": 1380, "lowest_seller": "Mobile Mania.ae", "seller_rating": null, "offers_count": 4, "all_offers": [{"seller": "Mobile Mania.ae", "price": 1380}], "product_url": "https://www.noon.com/uae-en/-/N70201108V/p/", "platform": "noon", "rating": 5, "ratings_count": 4, "bestseller_rank": null, "variant_count": 5}, {"id": "N70189236V", "brand": "Honor", "model_name": "Honor 400 Lite", "full_title": "Honor 400 Lite Dual SIM 5G Velvet Grey 8GB RAM 256GB - International Version", "sku": "N70189236V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Velvet Grey", "network": "5G", "battery_mah": 5230, "screen": "6.7 in"}, "list_price": 903.0, "old_price": null, "lowest_price": 903, "lowest_seller": "Phones4u LLC", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Phones4u LLC", "price": 903}], "product_url": "https://www.noon.com/uae-en/-/N70189236V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 5549, "bestseller_rank": null, "variant_count": 5}, {"id": "N70256801V", "brand": "Honor", "model_name": "Honor 400 Smart", "full_title": "Honor 400 Smart 5G Dual SIM 8GB RAM 256GB ROM Desert Gold - International Version", "sku": "N70256801V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Desert Gold", "network": "5G", "battery_mah": 6500, "screen": "6.77 in"}, "list_price": 845.0, "old_price": null, "lowest_price": 845, "lowest_seller": "TECH-WORLD", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "TECH-WORLD", "price": 845}], "product_url": "https://www.noon.com/uae-en/-/N70256801V/p/", "platform": "noon", "rating": 4.7, "ratings_count": 4, "bestseller_rank": null, "variant_count": 1}, {"id": "N51631887A", "brand": "Honor", "model_name": "Honor 50 Lite", "full_title": "Honor 50 lite Dual SIM Space Silver 8GB RAM 128GB 4G - Middle East version", "sku": "N51631887A", "config": {"ram_gb": 8, "rom_gb": 128, "color": "Space Silver", "network": "4G", "battery_mah": 4300, "screen": "6.67 in"}, "list_price": 940.0, "old_price": null, "lowest_price": 940, "lowest_seller": "TECH-WORLD", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "TECH-WORLD", "price": 940}], "product_url": "https://www.noon.com/uae-en/-/N51631887A/p/", "platform": "noon", "rating": 4.1, "ratings_count": 263, "bestseller_rank": null, "variant_count": 1}, {"id": "N70314489V", "brand": "Honor", "model_name": "Honor 600 Lite", "full_title": "Honor 600 Lite Dual SIM 5G Velvet Black 8GB RAM 128GB - Middle East Version", "sku": "N70314489V", "config": {"ram_gb": 8, "rom_gb": 128, "color": "Velvet Black", "network": "5G", "battery_mah": 6520, "screen": "6.6 cm"}, "list_price": 1029.0, "old_price": null, "lowest_price": 999, "lowest_seller": "noon", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "noon", "price": 1029}], "product_url": "https://www.noon.com/uae-en/-/N70314489V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 507, "bestseller_rank": null, "variant_count": 2}, {"id": "N70306365V", "brand": "Honor", "model_name": "Honor 600 Lite", "full_title": "Honor 600 Lite Dual SIM 5G Sprout Green 8GB RAM 256GB - Middle East Version", "sku": "N70306365V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Sprout Green", "network": "5G", "battery_mah": 6520, "screen": "6.6 cm"}, "list_price": 1085.0, "old_price": null, "lowest_price": 1068.98, "lowest_seller": "TECH-WORLD", "seller_rating": null, "offers_count": 9, "all_offers": [{"seller": "TECH-WORLD", "price": 1058}], "product_url": "https://www.noon.com/uae-en/-/N70306365V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 507, "bestseller_rank": null, "variant_count": 3}, {"id": "N70220290V", "brand": "Honor", "model_name": "Honor X5c", "full_title": "Honor X5c Dual SIM 4GB RAM 64GB 4G Midnight Black - Middle East Version", "sku": "N70220290V", "config": {"ram_gb": 4, "rom_gb": 64, "color": "Midnight Black", "network": "4G", "battery_mah": 5130, "screen": "6.74 in"}, "list_price": 398.9, "old_price": null, "lowest_price": 398.9, "lowest_seller": "Techdot FZE LLC", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Techdot FZE LLC", "price": 398.9}], "product_url": "https://www.noon.com/uae-en/-/N70220290V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 345, "bestseller_rank": null, "variant_count": 3}, {"id": "N70221570V", "brand": "Honor", "model_name": "Honor X5c", "full_title": "Honor X5c Plus 4G Dual SIM 4GB RAM 128GB Midnight Black - Middle East Version", "sku": "N70221570V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Midnight Black", "network": "4G", "battery_mah": 5260, "screen": "6.74 in"}, "list_price": 409.75, "old_price": null, "lowest_price": 414, "lowest_seller": "TECH-WORLD", "seller_rating": null, "offers_count": 8, "all_offers": [{"seller": "TECH-WORLD", "price": 375}], "product_url": "https://www.noon.com/uae-en/-/N70221570V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 1179, "bestseller_rank": null, "variant_count": 2}, {"id": "N70185239V", "brand": "Honor", "model_name": "Honor X6c", "full_title": "Honor X6c Dual SIM 4G Midnight Black 6GB RAM 128GB - Middle East Version", "sku": "N70185239V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Midnight Black", "network": "4G", "battery_mah": 5300, "screen": "6.61 in"}, "list_price": 504.0, "old_price": null, "lowest_price": 504.0, "lowest_seller": "noon", "seller_rating": null, "offers_count": 5, "all_offers": [{"seller": "noon", "price": 504.0}], "product_url": "https://www.noon.com/uae-en/-/N70185239V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 2873, "bestseller_rank": null, "variant_count": 5}, {"id": "N70185234V", "brand": "Honor", "model_name": "Honor X6c", "full_title": "Honor X6c Dual SIM 4G Moonlight White 6GB RAM 256GB - Middle East Version", "sku": "N70185234V", "config": {"ram_gb": 6, "rom_gb": 256, "color": "Moonlight White", "network": "4G", "battery_mah": 5300, "screen": "6.61 in"}, "list_price": 567.98, "old_price": null, "lowest_price": 567.98, "lowest_seller": "noon", "seller_rating": null, "offers_count": 5, "all_offers": [{"seller": "noon", "price": 567.98}], "product_url": "https://www.noon.com/uae-en/-/N70185234V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 2873, "bestseller_rank": null, "variant_count": 7}, {"id": "N70282286V", "brand": "Honor", "model_name": "Honor X6d", "full_title": "Honor X6d Dual SIM 5G Ocean Cyan 4GB RAM 256GB - Middle East Version", "sku": "N70282286V", "config": {"ram_gb": 4, "rom_gb": 256, "color": "Ocean Cyan", "network": "5G", "battery_mah": 5260, "screen": "6.75 in"}, "list_price": 611.0, "old_price": null, "lowest_price": 611.0, "lowest_seller": "P A P I T A", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "P A P I T A", "price": 611.0}], "product_url": "https://www.noon.com/uae-en/-/N70282286V/p/", "platform": "noon", "rating": 3.7, "ratings_count": 63, "bestseller_rank": null, "variant_count": 2}, {"id": "N70211448V", "brand": "Honor", "model_name": "Honor X7d", "full_title": "Honor X7d Dual SIM 6GB RAM 128GB 5G Dessert Gold - Middle East Version", "sku": "N70211448V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Desert Gold", "network": "5G", "battery_mah": 6500, "screen": "6.77 in"}, "list_price": 785.0, "old_price": null, "lowest_price": 785, "lowest_seller": "TECH-WORLD", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "TECH-WORLD", "price": 785}], "product_url": "https://www.noon.com/uae-en/-/N70211448V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 1173, "bestseller_rank": null, "variant_count": 3}, {"id": "N70213117V", "brand": "Honor", "model_name": "Honor X7d", "full_title": "Honor X7d Dual SIM 4G Desert Gold 8GB RAM 256GB - Middle East Version", "sku": "N70213117V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Desert Gold", "network": "4G", "battery_mah": 6500, "screen": "6.77 in"}, "list_price": 679.0, "old_price": null, "lowest_price": 679, "lowest_seller": "Mob-Planet", "seller_rating": null, "offers_count": 5, "all_offers": [{"seller": "Mob-Planet", "price": 679}], "product_url": "https://www.noon.com/uae-en/-/N70213117V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 475, "bestseller_rank": null, "variant_count": 9}, {"id": "N70372357V", "brand": "Honor", "model_name": "Honor X7e", "full_title": "Honor X7e Dual SIM 4G Sunrise Orange 6GB RAM 128GB - Middle East Version", "sku": "N70372357V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Sunrise Orange", "network": "4G", "battery_mah": 7500, "screen": "6.61 in"}, "list_price": 648.6, "old_price": null, "lowest_price": 648.6, "lowest_seller": "Arabix Mobile", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Arabix Mobile", "price": 648.6}], "product_url": "https://www.noon.com/uae-en/-/N70372357V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 4, "bestseller_rank": null, "variant_count": 1}, {"id": "N70162668V", "brand": "Honor", "model_name": "Honor X8c", "full_title": "Honor X8c 4G Dual SIM Moonlight White 8GB RAM 256GB - Middle East Version", "sku": "N70162668V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Moonlight White", "network": "4G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 870.0, "old_price": null, "lowest_price": 870, "lowest_seller": "TECH-WORLD", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "TECH-WORLD", "price": 870}], "product_url": "https://www.noon.com/uae-en/-/N70162668V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 125, "bestseller_rank": null, "variant_count": 2}, {"id": "N70276628V", "brand": "Honor", "model_name": "Honor X8d", "full_title": "Honor X8d Dual SIM 4G Velvet Black 8GB RAM 256GB - Middle East Version", "sku": "N70276628V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Velvet Black", "network": "4G", "battery_mah": 7000, "screen": "6.77 in"}, "list_price": 895.0, "old_price": null, "lowest_price": 895, "lowest_seller": "TECH-WORLD", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "TECH-WORLD", "price": 895}], "product_url": "https://www.noon.com/uae-en/-/N70276628V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 512, "bestseller_rank": null, "variant_count": 2}, {"id": "N70276625V", "brand": "Honor", "model_name": "Honor X9d", "full_title": "Honor X9d 5G Dual SIM 8GB RAM 256GB Midnight Black - Middle East Version", "sku": "N70276625V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Midnight Black", "network": "5G", "battery_mah": 8300, "screen": "6.79 in"}, "list_price": 1192.0, "old_price": null, "lowest_price": 1159, "lowest_seller": "Gadget Store", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "Gadget Store", "price": 1159}], "product_url": "https://www.noon.com/uae-en/-/N70276625V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 6807, "bestseller_rank": null, "variant_count": 3}, {"id": "N70261004V", "brand": "Honor", "model_name": "Honor X9d", "full_title": "Honor X9d 5G Dual SIM 12GB RAM 256GB Forest Green - International Version", "sku": "N70261004V", "config": {"ram_gb": 12, "rom_gb": 256, "color": "Forest Green", "network": "5G", "battery_mah": 8300, "screen": "6.79 in"}, "list_price": 1162.0, "old_price": null, "lowest_price": 1162.0, "lowest_seller": "Tech Bay", "seller_rating": null, "offers_count": 5, "all_offers": [{"seller": "Tech Bay", "price": 1162.0}], "product_url": "https://www.noon.com/uae-en/-/N70261004V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 6807, "bestseller_rank": null, "variant_count": 10}, {"id": "N70199443V", "brand": "Samsung", "model_name": "Galaxy A06", "full_title": "Samsung Galaxy A06 Dual SIM 4G Gold 4GB RAM 64GB - International Version", "sku": "N70199443V", "config": {"ram_gb": 4, "rom_gb": 64, "color": "Gold", "network": "4G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 325.0, "old_price": null, "lowest_price": 325.0, "lowest_seller": "IKA_2016", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "IKA_2016", "price": 325.0}], "product_url": "https://www.noon.com/uae-en/-/N70199443V/p/", "platform": "noon", "rating": 4.6, "ratings_count": 22, "bestseller_rank": null, "variant_count": 6}, {"id": "N70168379V", "brand": "Samsung", "model_name": "Galaxy A06", "full_title": "Samsung Galaxy A06 Dual SIM Black 6GB RAM 128GB 5G - International Version", "sku": "N70168379V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Black", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 559.0, "old_price": null, "lowest_price": 559, "lowest_seller": "Xpert Mobile Trader", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "Xpert Mobile Trader", "price": 508}], "product_url": "https://www.noon.com/uae-en/-/N70168379V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 132, "bestseller_rank": null, "variant_count": 2}, {"id": "N70202445V", "brand": "Samsung", "model_name": "Galaxy A07", "full_title": "Samsung Galaxy A07 Dual SIM Black 4GB 64GB 4G - Middle East Version", "sku": "N70202445V", "config": {"ram_gb": 4, "rom_gb": 64, "color": "Black", "network": "4G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 334.0, "old_price": null, "lowest_price": 334.0, "lowest_seller": "QUALITY STAR", "seller_rating": null, "offers_count": 7, "all_offers": [{"seller": "QUALITY STAR", "price": 334.0}], "product_url": "https://www.noon.com/uae-en/-/N70202445V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 3372, "bestseller_rank": null, "variant_count": 4}, {"id": "N70202444V", "brand": "Samsung", "model_name": "Galaxy A07", "full_title": "Samsung Galaxy A07 Dual SIM Black 4GB 128GB 4G - Middle East Version", "sku": "N70202444V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "black", "network": "4G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 442.95, "old_price": null, "lowest_price": 442.95, "lowest_seller": "Jacky's Brand Shop", "seller_rating": null, "offers_count": 13, "all_offers": [{"seller": "Jacky's Brand Shop", "price": 442.95}], "product_url": "https://www.noon.com/uae-en/-/N70202444V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 3372, "bestseller_rank": null, "variant_count": 4}, {"id": "N70341807V", "brand": "Samsung", "model_name": "Galaxy A07 5G", "full_title": "Samsung Galaxy A07 5G Black 4GB RAM 128GB Storage", "sku": "N70341807V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "black", "network": "5G", "battery_mah": 6000, "screen": "6.7 mm"}, "list_price": 499.0, "old_price": null, "lowest_price": 499.0, "lowest_seller": "Nextel Digital Planet", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Nextel Digital Planet", "price": 499.0}], "product_url": "https://www.noon.com/uae-en/-/N70341807V/p/", "platform": "noon", "rating": 5, "ratings_count": 1, "bestseller_rank": null, "variant_count": 2}, {"id": "N70377203V", "brand": "Samsung", "model_name": "Galaxy A07 5G", "full_title": "Samsung Galaxy A07 5G Light Violet 6GB RAM 128GB Storage", "sku": "N70377203V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Light Violet", "network": "5G", "battery_mah": 6000, "screen": "6.7 mm"}, "list_price": 609.0, "old_price": null, "lowest_price": 609.0, "lowest_seller": "Nextel Digital Planet", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Nextel Digital Planet", "price": 609.0}], "product_url": "https://www.noon.com/uae-en/-/N70377203V/p/", "platform": "noon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "N70126885V", "brand": "Samsung", "model_name": "Galaxy A16", "full_title": "Samsung Galaxy A16 4G Dual SIM Light Green 4GB RAM 128GB - Middle East Version", "sku": "N70126885V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Light Green", "network": "4G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 489.0, "old_price": null, "lowest_price": 489.0, "lowest_seller": "BESTEP GENERAL TRADING LLC", "seller_rating": null, "offers_count": 9, "all_offers": [{"seller": "BESTEP GENERAL TRADING LLC", "price": 489.0}], "product_url": "https://www.noon.com/uae-en/-/N70126885V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 18323, "bestseller_rank": null, "variant_count": 3}, {"id": "N70214272V", "brand": "Samsung", "model_name": "Galaxy A17", "full_title": "Samsung Galaxy A17 Dual SIM 4G Light Blue 4GB RAM 128GB - Middle East Version", "sku": "N70214272V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Light Blue", "network": "4G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 538.95, "old_price": null, "lowest_price": 538.95, "lowest_seller": "QUALITY STAR", "seller_rating": null, "offers_count": 6, "all_offers": [{"seller": "QUALITY STAR", "price": 538.95}], "product_url": "https://www.noon.com/uae-en/-/N70214272V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 1983, "bestseller_rank": null, "variant_count": 6}, {"id": "N70214275V", "brand": "Samsung", "model_name": "Galaxy A17", "full_title": "Samsung Galaxy A17 Dual SIM 4G Black 6GB RAM 128GB - Middle East Version", "sku": "N70214275V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Black", "network": "4G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 599.1, "old_price": null, "lowest_price": 599.1, "lowest_seller": "Al Mufaddal Al Aali", "seller_rating": null, "offers_count": 13, "all_offers": [{"seller": "Al Mufaddal Al Aali", "price": 599}], "product_url": "https://www.noon.com/uae-en/-/N70214275V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 1983, "bestseller_rank": null, "variant_count": 5}, {"id": "N70221016V", "brand": "Samsung", "model_name": "Galaxy A17", "full_title": "Samsung Galaxy A17 Dual SIM 4G Black 8GB RAM 256GB - International Version", "sku": "N70221016V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Black", "network": "4G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 749.0, "old_price": null, "lowest_price": 749.0, "lowest_seller": "Phones4u LLC", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Phones4u LLC", "price": 749.0}], "product_url": "https://www.noon.com/uae-en/-/N70221016V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 1983, "bestseller_rank": null, "variant_count": 6}, {"id": "N70338947V", "brand": "Samsung", "model_name": "Galaxy A17 5G", "full_title": "Samsung Galaxy A17 5G Blue 6GB RAM 128GB Storage", "sku": "N70338947V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "blue", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 689.0, "old_price": null, "lowest_price": 689.0, "lowest_seller": "Electronicsstore", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Electronicsstore", "price": 689.0}], "product_url": "https://www.noon.com/uae-en/-/N70338947V/p/", "platform": "noon", "rating": 4.8, "ratings_count": 4, "bestseller_rank": null, "variant_count": 3}, {"id": "N70245422V", "brand": "Samsung", "model_name": "Galaxy A17 5G", "full_title": "Samsung Galaxy A17 5G Black 8GB RAM 256GB - International Version", "sku": "N70245422V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Black", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 740.0, "old_price": null, "lowest_price": 740.0, "lowest_seller": "IKA_2016", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "IKA_2016", "price": 740.0}], "product_url": "https://www.noon.com/uae-en/-/N70245422V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 91, "bestseller_rank": null, "variant_count": 1}, {"id": "N70167829V", "brand": "Samsung", "model_name": "Galaxy A26", "full_title": "Samsung Galaxy A26 Dual SIM Black 6GB RAM 128GB 5G - International Version", "sku": "N70167829V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Black", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 729.0, "old_price": null, "lowest_price": 729, "lowest_seller": "GSM+", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "GSM+", "price": 729}], "product_url": "https://www.noon.com/uae-en/-/N70167829V/p/", "platform": "noon", "rating": 3.9, "ratings_count": 4, "bestseller_rank": null, "variant_count": 1}, {"id": "N70158910V", "brand": "Samsung", "model_name": "Galaxy A26 5G", "full_title": "Samsung Galaxy A26 5G Dual SIM Black 6GB RAM 128GB - Middle East Version", "sku": "N70158910V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Black", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 692.0, "old_price": null, "lowest_price": 692.0, "lowest_seller": "AL AISHA TRADING", "seller_rating": null, "offers_count": 10, "all_offers": [{"seller": "AL AISHA TRADING", "price": 692.0}], "product_url": "https://www.noon.com/uae-en/-/N70158910V/p/", "platform": "noon", "rating": 4.3, "ratings_count": 4891, "bestseller_rank": null, "variant_count": 4}, {"id": "N70158914V", "brand": "Samsung", "model_name": "Galaxy A26 5G", "full_title": "Samsung Galaxy A26 5G Dual SIM White 8GB RAM 256GB - Middle East Version", "sku": "N70158914V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "White", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 888.95, "old_price": null, "lowest_price": 888.95, "lowest_seller": "IKA_2016", "seller_rating": null, "offers_count": 11, "all_offers": [{"seller": "IKA_2016", "price": 888.95}], "product_url": "https://www.noon.com/uae-en/-/N70158914V/p/", "platform": "noon", "rating": 4.3, "ratings_count": 4891, "bestseller_rank": null, "variant_count": 4}, {"id": "N70357596V", "brand": "Samsung", "model_name": "Galaxy A36 5G", "full_title": "Samsung Galaxy A36 5G Dual SIM Awesome White 6GB RAM 128GB - Middle East Version", "sku": "N70357596V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Awesome White", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 858.95, "old_price": null, "lowest_price": 858.95, "lowest_seller": "Al Mufaddal Al Aali", "seller_rating": null, "offers_count": 4, "all_offers": [{"seller": "Al Mufaddal Al Aali", "price": 858.95}], "product_url": "https://www.noon.com/uae-en/-/N70357596V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 1820, "bestseller_rank": null, "variant_count": 2}, {"id": "N70158917V", "brand": "Samsung", "model_name": "Galaxy A36 5G", "full_title": "Samsung Galaxy A36 5G Dual SIM Awesome White 8GB RAM 128GB - Middle East Version", "sku": "N70158917V", "config": {"ram_gb": 8, "rom_gb": 128, "color": "Awesome White", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 948.95, "old_price": null, "lowest_price": 948.95, "lowest_seller": "DXB CELL", "seller_rating": null, "offers_count": 7, "all_offers": [{"seller": "DXB CELL", "price": 948.95}], "product_url": "https://www.noon.com/uae-en/-/N70158917V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 1820, "bestseller_rank": null, "variant_count": 4}, {"id": "N70165213V", "brand": "Samsung", "model_name": "Galaxy A36 5G", "full_title": "Samsung Galaxy A36 5G Dual SIM Awesome Black 8GB RAM 256GB - International Version", "sku": "N70165213V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Awesome Black", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 1049.0, "old_price": null, "lowest_price": 1049, "lowest_seller": "GSM+", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "GSM+", "price": 1049}], "product_url": "https://www.noon.com/uae-en/-/N70165213V/p/", "platform": "noon", "rating": 4.2, "ratings_count": 114, "bestseller_rank": null, "variant_count": 4}, {"id": "N70342179V", "brand": "Samsung", "model_name": "Galaxy A37", "full_title": "Samsung Galaxy A37 Dual SIM Awesome Graygreen 8GB RAM 256GB 5G - International Version", "sku": "N70342179V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Awesome Graygreen", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 1149.0, "old_price": null, "lowest_price": 1499, "lowest_seller": "GSM+", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "GSM+", "price": 1149}], "product_url": "https://www.noon.com/uae-en/-/N70342179V/p/", "platform": "noon", "rating": 4.6, "ratings_count": 58, "bestseller_rank": null, "variant_count": 6}, {"id": "N70158926V", "brand": "Samsung", "model_name": "Galaxy A56 5G", "full_title": "Samsung Galaxy A56 5G Dual SIM Awesome Graphite 8GB RAM 128GB - Middle East Version", "sku": "N70158926V", "config": {"ram_gb": 8, "rom_gb": 128, "color": "Awesome Graphite", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 1189.15, "old_price": null, "lowest_price": 1189.15, "lowest_seller": "Al Mufaddal Al Aali", "seller_rating": null, "offers_count": 12, "all_offers": [{"seller": "Al Mufaddal Al Aali", "price": 1189.15}], "product_url": "https://www.noon.com/uae-en/-/N70158926V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 13965, "bestseller_rank": null, "variant_count": 2}, {"id": "N70158930V", "brand": "Samsung", "model_name": "Galaxy A56 5G", "full_title": "Samsung Galaxy A56 5G Dual SIM Awesome Graphite 8GB RAM 256GB - Middle East Version", "sku": "N70158930V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Awesome Graphite", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 1270.1, "old_price": null, "lowest_price": 1270.1, "lowest_seller": "Blue Chips UAE", "seller_rating": null, "offers_count": 9, "all_offers": [{"seller": "Blue Chips UAE", "price": 1270.1}], "product_url": "https://www.noon.com/uae-en/-/N70158930V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 13965, "bestseller_rank": null, "variant_count": 6}, {"id": "N70161290V", "brand": "Samsung", "model_name": "Galaxy A56 5G", "full_title": "Samsung Galaxy A56 5G Dual SIM Awesome Graphite 12GB RAM 256GB - International Version", "sku": "N70161290V", "config": {"ram_gb": 12, "rom_gb": 256, "color": "Awesome Graphite", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 1359.0, "old_price": null, "lowest_price": 1359.0, "lowest_seller": "GSM+", "seller_rating": null, "offers_count": 4, "all_offers": [{"seller": "GSM+", "price": 1359.0}], "product_url": "https://www.noon.com/uae-en/-/N70161290V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 953, "bestseller_rank": null, "variant_count": 2}, {"id": "N70320358V", "brand": "Samsung", "model_name": "Galaxy A57", "full_title": "Samsung Galaxy A57 Dual SIM Awesome Navy 8GB RAM 128GB 5G - Middle East Version", "sku": "N70320358V", "config": {"ram_gb": 8, "rom_gb": 128, "color": "Awesome Navy", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 1298.2, "old_price": null, "lowest_price": 1298.2, "lowest_seller": "E-STORES.AE", "seller_rating": null, "offers_count": 10, "all_offers": [{"seller": "E-STORES.AE", "price": 1298.2}], "product_url": "https://www.noon.com/uae-en/-/N70320358V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 473, "bestseller_rank": null, "variant_count": 2}, {"id": "N70342195V", "brand": "Samsung", "model_name": "Galaxy A57", "full_title": "Samsung Galaxy A57 Dual SIM Awesome Lilac 8GB RAM 256GB 5G - International Version", "sku": "N70342195V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Awesome Lilac", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 1383.95, "old_price": null, "lowest_price": 1383.95, "lowest_seller": "callmateonline", "seller_rating": null, "offers_count": 8, "all_offers": [{"seller": "callmateonline", "price": 1383.95}], "product_url": "https://www.noon.com/uae-en/-/N70342195V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 473, "bestseller_rank": null, "variant_count": 7}, {"id": "N70342188V", "brand": "Samsung", "model_name": "Galaxy A57", "full_title": "Samsung Galaxy A57 Dual SIM Awesome Navy 12GB RAM 256GB 5G - International Version", "sku": "N70342188V", "config": {"ram_gb": 12, "rom_gb": 256, "color": "Awesome Navy", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 1362.0, "old_price": null, "lowest_price": 1362.0, "lowest_seller": "GSM+", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "GSM+", "price": 1362.0}], "product_url": "https://www.noon.com/uae-en/-/N70342188V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 473, "bestseller_rank": null, "variant_count": 4}, {"id": "N70304888V", "brand": "Samsung", "model_name": "Galaxy F36 5G", "full_title": "Samsung Galaxy F36 5G Black 6GB RAM 128GB Storage - India Version", "sku": "N70304888V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "black", "network": "5G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 648.95, "old_price": null, "lowest_price": 648.95, "lowest_seller": "Nextel Digital Planet", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "Nextel Digital Planet", "price": 648.95}], "product_url": "https://www.noon.com/uae-en/-/N70304888V/p/", "platform": "noon", "rating": 4.2, "ratings_count": 21, "bestseller_rank": null, "variant_count": 1}, {"id": "N70378351V", "brand": "Samsung", "model_name": "Galaxy F70e 5G", "full_title": "Samsung Galaxy F70e 5G Spotlight Blue 4GB RAM 128GB Storage", "sku": "N70378351V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "spotlight blue", "network": "5G", "battery_mah": 6000, "screen": "6.7 in"}, "list_price": 460.0, "old_price": null, "lowest_price": 460.0, "lowest_seller": "Nextel Digital Planet", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Nextel Digital Planet", "price": 460.0}], "product_url": "https://www.noon.com/uae-en/-/N70378351V/p/", "platform": "noon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "N70378430V", "brand": "Samsung", "model_name": "Galaxy F70e 5G", "full_title": "Samsung Galaxy F70e 5G Limelight Green 6GB RAM 128GB Storage", "sku": "N70378430V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Limelight Green", "network": "5G", "battery_mah": 6000, "screen": "6.7 in"}, "list_price": 547.0, "old_price": null, "lowest_price": 547.0, "lowest_seller": "Nextel Digital Planet", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "Nextel Digital Planet", "price": 547.0}], "product_url": "https://www.noon.com/uae-en/-/N70378430V/p/", "platform": "noon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "N70275995V", "brand": "Samsung", "model_name": "Galaxy M07", "full_title": "Samsung Galaxy M07 Black 4GB RAM 64GB Storage", "sku": "N70275995V", "config": {"ram_gb": 4, "rom_gb": 64, "color": "Black", "network": "4G", "battery_mah": 5000, "screen": "6.7 in"}, "list_price": 342.0, "old_price": null, "lowest_price": 342.0, "lowest_seller": "STATUS CONTRACT", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "STATUS CONTRACT", "price": 342.0}], "product_url": "https://www.noon.com/uae-en/-/N70275995V/p/", "platform": "noon", "rating": 4.7, "ratings_count": 9, "bestseller_rank": null, "variant_count": 1}, {"id": "N70338582V", "brand": "Samsung", "model_name": "Galaxy M17 5G", "full_title": "Samsung Galaxy M17 5G Sapphire Black 4GB RAM 128GB Storage - Indian Version", "sku": "N70338582V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Sapphire Black", "network": "5G", "battery_mah": 5000, "screen": "6.71 in"}, "list_price": 545.0, "old_price": null, "lowest_price": 545.0, "lowest_seller": "STATUS CONTRACT", "seller_rating": null, "offers_count": 6, "all_offers": [{"seller": "STATUS CONTRACT", "price": 545.0}], "product_url": "https://www.noon.com/uae-en/-/N70338582V/p/", "platform": "noon", "rating": 4.6, "ratings_count": 11, "bestseller_rank": null, "variant_count": 2}, {"id": "N70251420V", "brand": "Samsung", "model_name": "Galaxy M17 5G", "full_title": "Samsung Galaxy M17 5G Moonlight Silver 6GB RAM 128GB Storage - Indian Version", "sku": "N70251420V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "moonlight silver", "network": "5G", "battery_mah": 5000, "screen": "6.71 in"}, "list_price": 619.0, "old_price": null, "lowest_price": 619.0, "lowest_seller": "Telefix Telecom L.L.C", "seller_rating": null, "offers_count": 6, "all_offers": [{"seller": "Telefix Telecom L.L.C", "price": 619.0}], "product_url": "https://www.noon.com/uae-en/-/N70251420V/p/", "platform": "noon", "rating": 4.3, "ratings_count": 37, "bestseller_rank": null, "variant_count": 2}, {"id": "N70278491V", "brand": "Samsung", "model_name": "Galaxy M17 5G", "full_title": "Samsung Galaxy M17 5G Moonlight Silver 8GB RAM 128GB Storage - Indian Version", "sku": "N70278491V", "config": {"ram_gb": 8, "rom_gb": 128, "color": "moonlight silver", "network": "5G", "battery_mah": 5000, "screen": "6.71 in"}, "list_price": 685.0, "old_price": null, "lowest_price": 685.0, "lowest_seller": "IKA_2016", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "IKA_2016", "price": 685.0}], "product_url": "https://www.noon.com/uae-en/-/N70278491V/p/", "platform": "noon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 2}, {"id": "N70345517V", "brand": "Samsung", "model_name": "Galaxy M17e 5G", "full_title": "Samsung Galaxy M17e 5G Blitz Blue 4GB RAM 128GB Storage", "sku": "N70345517V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "blue", "network": "5G", "battery_mah": 6000, "screen": "6.7 in"}, "list_price": 475.0, "old_price": null, "lowest_price": 475.0, "lowest_seller": "STATUS CONTRACT", "seller_rating": null, "offers_count": 7, "all_offers": [{"seller": "STATUS CONTRACT", "price": 475.0}], "product_url": "https://www.noon.com/uae-en/-/N70345517V/p/", "platform": "noon", "rating": 4.2, "ratings_count": 17, "bestseller_rank": null, "variant_count": 1}, {"id": "N70345518V", "brand": "Samsung", "model_name": "Galaxy M17e 5G", "full_title": "Samsung Galaxy M17e 5G Vibe Violet 6GB RAM 128GB Storage", "sku": "N70345518V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Vibe Violet", "network": "5G", "battery_mah": 6000, "screen": "6.7 in"}, "list_price": 678.95, "old_price": null, "lowest_price": 678.95, "lowest_seller": "Nextel Digital Planet", "seller_rating": null, "offers_count": 4, "all_offers": [{"seller": "Nextel Digital Planet", "price": 678.95}], "product_url": "https://www.noon.com/uae-en/-/N70345518V/p/", "platform": "noon", "rating": 4.6, "ratings_count": 13, "bestseller_rank": null, "variant_count": 1}, {"id": "N50878251A", "brand": "Samsung", "model_name": "Galaxy M22", "full_title": "Samsung Galaxy M22 Dual SIM Black 4GB RAM 64GB LTE - Middle East Version", "sku": "N50878251A", "config": {"ram_gb": 4, "rom_gb": 64, "color": "Black", "network": "4G", "battery_mah": 5000, "screen": "6 in"}, "list_price": 500.0, "old_price": null, "lowest_price": 500, "lowest_seller": "IKA_2016", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "IKA_2016", "price": 500}], "product_url": "https://www.noon.com/uae-en/-/N50878251A/p/", "platform": "noon", "rating": 4.5, "ratings_count": 124, "bestseller_rank": null, "variant_count": 1}, {"id": "N70040314V", "brand": "Xiaomi", "model_name": "Redmi 13C", "full_title": "Xiaomi Redmi 13C Dual SIM Clover Green 4GB RAM 128GB 4G", "sku": "N70040314V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Green", "network": "4G", "battery_mah": 5000, "screen": "6.74 in"}, "list_price": 299.0, "old_price": null, "lowest_price": 299, "lowest_seller": "KARAM TRADING", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "KARAM TRADING", "price": 299}], "product_url": "https://www.noon.com/uae-en/-/N70040314V/p/", "platform": "noon", "rating": 4.1, "ratings_count": 118, "bestseller_rank": null, "variant_count": 1}, {"id": "N70368853V", "brand": "Xiaomi", "model_name": "Redmi 13C", "full_title": "Xiaomi Redmi 13C Dual SIM Glacier White 8GB RAM 256GB 4G - International Version", "sku": "N70368853V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Glacier White", "network": "4G", "battery_mah": 5000, "screen": "6.74 in"}, "list_price": 333.0, "old_price": null, "lowest_price": 353, "lowest_seller": "KARAM TRADING", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "KARAM TRADING", "price": 333}], "product_url": "https://www.noon.com/uae-en/-/N70368853V/p/", "platform": "noon", "rating": 3.4, "ratings_count": 8, "bestseller_rank": null, "variant_count": 3}, {"id": "N70102641V", "brand": "Xiaomi", "model_name": "Redmi 14C", "full_title": "Xiaomi Redmi 14C Sage Green Dual SIM 4GB RAM 128GB ROM - Global Version", "sku": "N70102641V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Green", "network": "4G", "battery_mah": 5160, "screen": "6.88 in"}, "list_price": 379.0, "old_price": null, "lowest_price": 419, "lowest_seller": "Phones4u LLC", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "Phones4u LLC", "price": 379}], "product_url": "https://www.noon.com/uae-en/-/N70102641V/p/", "platform": "noon", "rating": 4.2, "ratings_count": 666, "bestseller_rank": null, "variant_count": 3}, {"id": "N70144136V", "brand": "Xiaomi", "model_name": "Redmi 14C", "full_title": "Xiaomi Redmi 14C Dual SIM Sage Green 6GB RAM 128GB 4G - Global Version", "sku": "N70144136V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Sage Green", "network": "4G", "battery_mah": 5160, "screen": "6.5 in"}, "list_price": 449.0, "old_price": null, "lowest_price": 449, "lowest_seller": "MI-Tech+", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "MI-Tech+", "price": 449}], "product_url": "https://www.noon.com/uae-en/-/N70144136V/p/", "platform": "noon", "rating": 2.5, "ratings_count": 8, "bestseller_rank": null, "variant_count": 2}, {"id": "N70101566V", "brand": "Xiaomi", "model_name": "Redmi 14C", "full_title": "Xiaomi Redmi 14C Dual SIM Sage Green 8GB RAM 256GB 4G - Global Version", "sku": "N70101566V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Sage Green", "network": "4G", "battery_mah": 5160, "screen": "6.88 in"}, "list_price": 383.0, "old_price": null, "lowest_price": 383, "lowest_seller": "KARAM TRADING", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "KARAM TRADING", "price": 383}], "product_url": "https://www.noon.com/uae-en/-/N70101566V/p/", "platform": "noon", "rating": 3.6, "ratings_count": 3963, "bestseller_rank": null, "variant_count": 3}, {"id": "N70244001V", "brand": "Xiaomi", "model_name": "Redmi 15", "full_title": "Xiaomi Redmi 15 4G Sandy Purple Dual SIM 8GB RAM 256GB - Global Version", "sku": "N70244001V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Sandy Purple", "network": "4G", "battery_mah": 7000, "screen": "6.9 in"}, "list_price": 649.0, "old_price": null, "lowest_price": 649, "lowest_seller": "MI-Tech+", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "MI-Tech+", "price": 649}], "product_url": "https://www.noon.com/uae-en/-/N70244001V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 136, "bestseller_rank": null, "variant_count": 6}, {"id": "N70203284V", "brand": "Xiaomi", "model_name": "Redmi 15C", "full_title": "Xiaomi Redmi 15C Dual SIM Midnight Black 4GB RAM 128GB 4G - Global Version", "sku": "N70203284V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Midnight Black", "network": "4G", "battery_mah": 6000, "screen": "6.9 in"}, "list_price": 400.99, "old_price": null, "lowest_price": 400.99, "lowest_seller": "Smart Gadgets", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "Smart Gadgets", "price": 400.99}], "product_url": "https://www.noon.com/uae-en/-/N70203284V/p/", "platform": "noon", "rating": 4, "ratings_count": 1730, "bestseller_rank": null, "variant_count": 7}, {"id": "N70203297V", "brand": "Xiaomi", "model_name": "Redmi 15C", "full_title": "Xiaomi Redmi 15C Dual SIM Mint Green 4GB RAM 256GB 4G - Global Version", "sku": "N70203297V", "config": {"ram_gb": 4, "rom_gb": 256, "color": "Mint Green", "network": "4G", "battery_mah": 6000, "screen": "6.9 in"}, "list_price": 479.0, "old_price": null, "lowest_price": 479, "lowest_seller": "Smart Gadgets", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Smart Gadgets", "price": 479}], "product_url": "https://www.noon.com/uae-en/-/N70203297V/p/", "platform": "noon", "rating": 2.4, "ratings_count": 6, "bestseller_rank": null, "variant_count": 2}, {"id": "N70378958V", "brand": "Xiaomi", "model_name": "Redmi 15C", "full_title": "Xiaomi Redmi 15C 5G 8GB RAM 128GB Storage Midnight Black - Global Version", "sku": "N70378958V", "config": {"ram_gb": 8, "rom_gb": 128, "color": "black", "network": "5G", "battery_mah": 6000, "screen": "6.9 in"}, "list_price": 649.0, "old_price": null, "lowest_price": 649.0, "lowest_seller": "Nextel Digital Planet", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Nextel Digital Planet", "price": 649.0}], "product_url": "https://www.noon.com/uae-en/-/N70378958V/p/", "platform": "noon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 2}, {"id": "N70203293V", "brand": "Xiaomi", "model_name": "Redmi 15C", "full_title": "Xiaomi Redmi 15C Dual SIM Mint Green 8GB RAM 256GB 4G - Global Version", "sku": "N70203293V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Mint Green", "network": "4G", "battery_mah": 6000, "screen": "6.9 in"}, "list_price": 529.0, "old_price": null, "lowest_price": 545, "lowest_seller": "KARAM TRADING", "seller_rating": null, "offers_count": 5, "all_offers": [{"seller": "KARAM TRADING", "price": 477.35}], "product_url": "https://www.noon.com/uae-en/-/N70203293V/p/", "platform": "noon", "rating": 4, "ratings_count": 1730, "bestseller_rank": null, "variant_count": 11}, {"id": "N70098405V", "brand": "Xiaomi", "model_name": "Redmi A3X", "full_title": "Xiaomi Redmi A3X Dual Sim Aurora Green 4GB RAM 128GB 4G - International Version", "sku": "N70098405V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Aurora Green", "network": "4G", "battery_mah": 5000, "screen": "6.71 in"}, "list_price": 399.0, "old_price": null, "lowest_price": 399, "lowest_seller": "KARAM TRADING", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "KARAM TRADING", "price": 399}], "product_url": "https://www.noon.com/uae-en/-/N70098405V/p/", "platform": "noon", "rating": 3.6, "ratings_count": 5, "bestseller_rank": null, "variant_count": 1}, {"id": "N70148652V", "brand": "Xiaomi", "model_name": "Redmi A4", "full_title": "Xiaomi Redmi A4 4GB RAM 128GB Storage 5G Starry Black - Global Version", "sku": "N70148652V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Starry Black", "network": "5G", "battery_mah": 5160, "screen": "6.88 in"}, "list_price": 599.0, "old_price": null, "lowest_price": 599, "lowest_seller": "Khaleej Electronics", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Khaleej Electronics", "price": 599}], "product_url": "https://www.noon.com/uae-en/-/N70148652V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 13, "bestseller_rank": null, "variant_count": 1}, {"id": "N70166025V", "brand": "Xiaomi", "model_name": "Redmi A5", "full_title": "Xiaomi Redmi A5 4G Dual SIM Ocean Blue 3GB RAM 64GB - Global Version", "sku": "N70166025V", "config": {"ram_gb": 3, "rom_gb": 64, "color": "Ocean Blue", "network": "4G", "battery_mah": 5200, "screen": "6.88 in"}, "list_price": 339.0, "old_price": null, "lowest_price": 339, "lowest_seller": "MI-Tech+", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "MI-Tech+", "price": 339}], "product_url": "https://www.noon.com/uae-en/-/N70166025V/p/", "platform": "noon", "rating": 4.3, "ratings_count": 3452, "bestseller_rank": null, "variant_count": 4}, {"id": "N70166024V", "brand": "Xiaomi", "model_name": "Redmi A5", "full_title": "Xiaomi Redmi A5 4G Dual SIM Midnight Black 4GB RAM 128GB - Global Version", "sku": "N70166024V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Midnight Black", "network": "4G", "battery_mah": 5200, "screen": "6.88 in"}, "list_price": 349.0, "old_price": null, "lowest_price": 349, "lowest_seller": "KARAM TRADING", "seller_rating": null, "offers_count": 8, "all_offers": [{"seller": "KARAM TRADING", "price": 345}], "product_url": "https://www.noon.com/uae-en/-/N70166024V/p/", "platform": "noon", "rating": 4.3, "ratings_count": 3452, "bestseller_rank": null, "variant_count": 4}, {"id": "N70312063V", "brand": "Xiaomi", "model_name": "Redmi A7 Pro", "full_title": "Xiaomi REDMI A7 Pro Black 4GB RAM 64GB ROM 4G - Global Version", "sku": "N70312063V", "config": {"ram_gb": 4, "rom_gb": 64, "color": "Black", "network": "4G", "battery_mah": 6000, "screen": "6.9 in"}, "list_price": 355.0, "old_price": null, "lowest_price": 355, "lowest_seller": "TTK MOBILE TRADING L.L.C", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "TTK MOBILE TRADING L.L.C", "price": 349.95}], "product_url": "https://www.noon.com/uae-en/-/N70312063V/p/", "platform": "noon", "rating": 4.6, "ratings_count": 70, "bestseller_rank": null, "variant_count": 3}, {"id": "N70312066V", "brand": "Xiaomi", "model_name": "Redmi A7 Pro", "full_title": "Xiaomi REDMI A7 Pro Black 4GB RAM 128GB ROM 4G - Global Version", "sku": "N70312066V", "config": {"ram_gb": 4, "rom_gb": 128, "color": "Black", "network": "4G", "battery_mah": 6000, "screen": "6.9 in"}, "list_price": 429.0, "old_price": null, "lowest_price": 429.0, "lowest_seller": "Mob-Planet", "seller_rating": null, "offers_count": 8, "all_offers": [{"seller": "Mob-Planet", "price": 429.0}], "product_url": "https://www.noon.com/uae-en/-/N70312066V/p/", "platform": "noon", "rating": 4.6, "ratings_count": 70, "bestseller_rank": null, "variant_count": 8}, {"id": "N70112414V", "brand": "Xiaomi", "model_name": "Redmi Note 10", "full_title": "Xiaomi Redmi Note 10 5G Dual SIM Aurora Green 6GB RAM 128GB", "sku": "N70112414V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Green", "network": "5G", "battery_mah": 5000, "screen": "6.5 in"}, "list_price": 369.0, "old_price": null, "lowest_price": 369, "lowest_seller": "Good store", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Good store", "price": 369}], "product_url": "https://www.noon.com/uae-en/-/N70112414V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 5, "bestseller_rank": null, "variant_count": 1}, {"id": "N53351250A", "brand": "Xiaomi", "model_name": "Redmi Note 11S", "full_title": "Xiaomi Redmi Note 11S 4G Dual SIM Space Black 8GB RAM 128GB - Indian Version", "sku": "N53351250A", "config": {"ram_gb": 8, "rom_gb": 128, "color": "Space Black", "network": "4G", "battery_mah": 5000, "screen": "6.43 in"}, "list_price": 899.0, "old_price": null, "lowest_price": 899, "lowest_seller": "Electronicsstore", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Electronicsstore", "price": 899}], "product_url": "https://www.noon.com/uae-en/-/N53351250A/p/", "platform": "noon", "rating": 3.7, "ratings_count": 30, "bestseller_rank": null, "variant_count": 1}, {"id": "N70038958V", "brand": "Xiaomi", "model_name": "Redmi Note 13 Pro", "full_title": "Xiaomi Redmi Note 13 Pro 5G Midnight Black 128GB 8GB RAM -Indian Version", "sku": "N70038958V", "config": {"ram_gb": 8, "rom_gb": 128, "color": "Black", "network": "5G", "battery_mah": 5100, "screen": "6.67 in"}, "list_price": 666.0, "old_price": null, "lowest_price": 666, "lowest_seller": "KARAM TRADING", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "KARAM TRADING", "price": 666}], "product_url": "https://www.noon.com/uae-en/-/N70038958V/p/", "platform": "noon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "N70048456V", "brand": "Xiaomi", "model_name": "Redmi Note 13 Pro", "full_title": "Xiaomi Redmi Note 13 Pro 5G Midnight Black, 12Gb Ram 256Gb - Indian Version", "sku": "N70048456V", "config": {"ram_gb": 12, "rom_gb": 256, "color": "Black", "network": "5G", "battery_mah": 5000, "screen": "6.67 in"}, "list_price": 775.0, "old_price": null, "lowest_price": 775, "lowest_seller": "KARAM TRADING", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "KARAM TRADING", "price": 775}], "product_url": "https://www.noon.com/uae-en/-/N70048456V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 5, "bestseller_rank": null, "variant_count": 1}, {"id": "N70037715V", "brand": "Xiaomi", "model_name": "Redmi Note 13 Pro", "full_title": "Xiaomi Redmi Note 13 Pro 5G Dual Smartphone 12Gb Ram 512Gb Storage Midnight Black", "sku": "N70037715V", "config": {"ram_gb": 12, "rom_gb": 512, "color": "Black", "network": "5G", "battery_mah": 5100, "screen": "6.67 in"}, "list_price": 1145.0, "old_price": null, "lowest_price": 1145.0, "lowest_seller": "Al Aqsa Trading", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Al Aqsa Trading", "price": 1145.0}], "product_url": "https://www.noon.com/uae-en/-/N70037715V/p/", "platform": "noon", "rating": 3.8, "ratings_count": 3, "bestseller_rank": null, "variant_count": 4}, {"id": "N70030000V", "brand": "Xiaomi", "model_name": "Redmi Note 13 Pro+", "full_title": "Xiaomi Redmi Note 13 Pro+ 5G Dual SIM Moonlight White 12GB RAM 512GB - Global Version", "sku": "N70030000V", "config": {"ram_gb": 12, "rom_gb": 512, "color": "Moonlight White", "network": "5G", "battery_mah": 5000, "screen": "6.67 in"}, "list_price": 1540.0, "old_price": null, "lowest_price": 1540, "lowest_seller": "Mobi Bazaar", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Mobi Bazaar", "price": 1540}], "product_url": "https://www.noon.com/uae-en/-/N70030000V/p/", "platform": "noon", "rating": 4.3, "ratings_count": 2458, "bestseller_rank": null, "variant_count": 1}, {"id": "N70135087V", "brand": "Xiaomi", "model_name": "Redmi Note 14", "full_title": "Xiaomi Redmi Note 14 4G Dual SIM Midnight Black 8GB RAM 256GB - Global Version", "sku": "N70135087V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Midnight Black", "network": "4G", "battery_mah": 5500, "screen": "6.67 in"}, "list_price": 640.0, "old_price": null, "lowest_price": 640.0, "lowest_seller": "KARAM TRADING", "seller_rating": null, "offers_count": 7, "all_offers": [{"seller": "KARAM TRADING", "price": 640.0}], "product_url": "https://www.noon.com/uae-en/-/N70135087V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 1650, "bestseller_rank": null, "variant_count": 6}, {"id": "N70135748V", "brand": "Xiaomi", "model_name": "Redmi Note 14 Pro", "full_title": "Xiaomi Redmi Note 14 Pro 4G Midnight Black 8GB RAM 256GB - Global Version", "sku": "N70135748V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Midnight Black", "network": "4G", "battery_mah": 5500, "screen": "6.67 in"}, "list_price": 849.0, "old_price": null, "lowest_price": 849.0, "lowest_seller": "TECH-WORLD", "seller_rating": null, "offers_count": 4, "all_offers": [{"seller": "TECH-WORLD", "price": 849.0}], "product_url": "https://www.noon.com/uae-en/-/N70135748V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 1304, "bestseller_rank": null, "variant_count": 4}, {"id": "N70135110V", "brand": "Xiaomi", "model_name": "Redmi Note 14 Pro", "full_title": "Xiaomi Redmi Note 14 Pro 5G Dual SIM Midnight Black 12GB RAM 256GB - Global Version", "sku": "N70135110V", "config": {"ram_gb": 12, "rom_gb": 256, "color": "Midnight Black", "network": "5G", "battery_mah": 5110, "screen": "6.67 in"}, "list_price": 877.0, "old_price": null, "lowest_price": 877, "lowest_seller": "Al Mufaddal Al Aali", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Al Mufaddal Al Aali", "price": 877}], "product_url": "https://www.noon.com/uae-en/-/N70135110V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 1304, "bestseller_rank": null, "variant_count": 2}, {"id": "N70185231V", "brand": "Xiaomi", "model_name": "Redmi Note 14 Pro", "full_title": "Xiaomi Redmi Note 14 Pro 4G Sand Gold 12GB RAM 512GB - Global Version", "sku": "N70185231V", "config": {"ram_gb": 12, "rom_gb": 512, "color": "Sand Gold", "network": "4G", "battery_mah": 5500, "screen": "6.67 in"}, "list_price": 949.0, "old_price": null, "lowest_price": 949, "lowest_seller": "Smart Gadgets", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Smart Gadgets", "price": 949}], "product_url": "https://www.noon.com/uae-en/-/N70185231V/p/", "platform": "noon", "rating": 5, "ratings_count": 1, "bestseller_rank": null, "variant_count": 9}, {"id": "N70135128V", "brand": "Xiaomi", "model_name": "Redmi Note 14 Pro+", "full_title": "Xiaomi Redmi Note 14 Pro+ 5G Dual SIM Midnight Black 12GB RAM 256GB - Global Version", "sku": "N70135128V", "config": {"ram_gb": 12, "rom_gb": 256, "color": "Midnight Black", "network": "5G", "battery_mah": 5110, "screen": "6.67 in"}, "list_price": 1199.0, "old_price": null, "lowest_price": 1299, "lowest_seller": "Smart Gadgets", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Smart Gadgets", "price": 1199}], "product_url": "https://www.noon.com/uae-en/-/N70135128V/p/", "platform": "noon", "rating": 4.3, "ratings_count": 230, "bestseller_rank": null, "variant_count": 3}, {"id": "N70135743V", "brand": "Xiaomi", "model_name": "Redmi Note 14 Pro+", "full_title": "Xiaomi Redmi Note 14 Pro+ 5G Frost Blue 12GB RAM 512GB - Global Version", "sku": "N70135743V", "config": {"ram_gb": 12, "rom_gb": 512, "color": "Frost Blue", "network": "5G", "battery_mah": 5110, "screen": "6.67 in"}, "list_price": 1296.0, "old_price": null, "lowest_price": 1296, "lowest_seller": "MI-Tech+", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "MI-Tech+", "price": 1295}], "product_url": "https://www.noon.com/uae-en/-/N70135743V/p/", "platform": "noon", "rating": 4.3, "ratings_count": 952, "bestseller_rank": null, "variant_count": 6}, {"id": "N70168785V", "brand": "Xiaomi", "model_name": "Redmi Note 14S", "full_title": "Xiaomi Redmi Note 14S 4G Dual SIM Ocean Blue 8GB RAM 256GB - Global Version", "sku": "N70168785V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "Ocean Blue", "network": "4G", "battery_mah": 5000, "screen": "6.67 in"}, "list_price": 698.0, "old_price": null, "lowest_price": 693.95, "lowest_seller": "MI-Tech+", "seller_rating": null, "offers_count": 5, "all_offers": [{"seller": "MI-Tech+", "price": 689}], "product_url": "https://www.noon.com/uae-en/-/N70168785V/p/", "platform": "noon", "rating": 4.8, "ratings_count": 10, "bestseller_rank": null, "variant_count": 3}, {"id": "N70168773V", "brand": "Xiaomi", "model_name": "Redmi Note 14S", "full_title": "Xiaomi Redmi Note 14S 4G Dual SIM Midnight Black 12GB RAM 512GB - Global Version", "sku": "N70168773V", "config": {"ram_gb": 12, "rom_gb": 512, "color": "Midnight Black", "network": "4G", "battery_mah": 5000, "screen": "6.67 in"}, "list_price": 819.0, "old_price": null, "lowest_price": 819, "lowest_seller": "Mobile Mania.ae", "seller_rating": null, "offers_count": 3, "all_offers": [{"seller": "Mobile Mania.ae", "price": 819}], "product_url": "https://www.noon.com/uae-en/-/N70168773V/p/", "platform": "noon", "rating": 4.8, "ratings_count": 10, "bestseller_rank": null, "variant_count": 3}, {"id": "N70286264V", "brand": "Xiaomi", "model_name": "Redmi Note 15", "full_title": "Xiaomi Redmi Note 15 Dual SIM Black 6GB RAM 128GB 4G - Middle East Version", "sku": "N70286264V", "config": {"ram_gb": 6, "rom_gb": 128, "color": "Black", "network": "4G", "battery_mah": 6000, "screen": "6.77 in"}, "list_price": 619.0, "old_price": null, "lowest_price": 619, "lowest_seller": "MI-Tech+", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "MI-Tech+", "price": 619}], "product_url": "https://www.noon.com/uae-en/-/N70286264V/p/", "platform": "noon", "rating": 4.8, "ratings_count": 16, "bestseller_rank": null, "variant_count": 1}, {"id": "N70270124V", "brand": "Xiaomi", "model_name": "Redmi Note 15", "full_title": "Xiaomi Redmi Note 15 Dual SIM 4G Black 8G RAM 256GB with 3 Pin adaptor - Global Version", "sku": "N70270124V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "black", "network": "4G", "battery_mah": 6000, "screen": "6.77 in"}, "list_price": 699.0, "old_price": null, "lowest_price": 699.0, "lowest_seller": "noon", "seller_rating": null, "offers_count": 6, "all_offers": [{"seller": "noon", "price": 699.0}], "product_url": "https://www.noon.com/uae-en/-/N70270124V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 376, "bestseller_rank": null, "variant_count": 26}, {"id": "N70270094V", "brand": "Xiaomi", "model_name": "Redmi Note 15 Pro", "full_title": "Xiaomi Redmi Note 15 Pro Dual SIM 4G Black 8G RAM 256GB with 3 Pin adaptor - Global Version", "sku": "N70270094V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "black", "network": "4G", "battery_mah": 6500, "screen": "6.77 in"}, "list_price": 898.0, "old_price": null, "lowest_price": 898.0, "lowest_seller": "noon", "seller_rating": null, "offers_count": 7, "all_offers": [{"seller": "noon", "price": 898.0}], "product_url": "https://www.noon.com/uae-en/-/N70270094V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 283, "bestseller_rank": null, "variant_count": 13}, {"id": "N70270927V", "brand": "Xiaomi", "model_name": "Redmi Note 15 Pro", "full_title": "Xiaomi Redmi Note 15 Pro Dual SIM 5G Black 12GB RAM 256GB with 3 Pin adaptor - Global Version", "sku": "N70270927V", "config": {"ram_gb": 12, "rom_gb": 256, "color": "black", "network": "5G", "battery_mah": 6580, "screen": "6.83 in"}, "list_price": 1079.0, "old_price": null, "lowest_price": 1079.0, "lowest_seller": "noon", "seller_rating": null, "offers_count": 7, "all_offers": [{"seller": "noon", "price": 1079.0}], "product_url": "https://www.noon.com/uae-en/-/N70270927V/p/", "platform": "noon", "rating": 4.5, "ratings_count": 283, "bestseller_rank": null, "variant_count": 7}, {"id": "N70377938V", "brand": "Xiaomi", "model_name": "Redmi Note 15 Pro", "full_title": "Xiaomi Redmi Note 15 Pro Dual SIM 4G Black 12GB RAM 512GB - Global Version", "sku": "N70377938V", "config": {"ram_gb": 12, "rom_gb": 512, "color": "black", "network": "4G", "battery_mah": 6500, "screen": "6.77 in"}, "list_price": 1299.0, "old_price": null, "lowest_price": 1299, "lowest_seller": "Smart Gadgets", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Smart Gadgets", "price": 1299}], "product_url": "https://www.noon.com/uae-en/-/N70377938V/p/", "platform": "noon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 2}, {"id": "N70314423V", "brand": "Xiaomi", "model_name": "Redmi Note 15 Pro+", "full_title": "Xiaomi Redmi Note 15 Pro+ 5G Carbon Black 8GB RAM 256GB - Global Version", "sku": "N70314423V", "config": {"ram_gb": 8, "rom_gb": 256, "color": "black", "network": "5G", "battery_mah": 6500, "screen": "6.83 in"}, "list_price": 1309.0, "old_price": null, "lowest_price": 1309, "lowest_seller": "Electronicsstore", "seller_rating": null, "offers_count": 2, "all_offers": [{"seller": "Electronicsstore", "price": 1309}], "product_url": "https://www.noon.com/uae-en/-/N70314423V/p/", "platform": "noon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "N70270100V", "brand": "Xiaomi", "model_name": "Redmi Note 15 Pro+", "full_title": "Xiaomi Redmi Note 15 Pro+ Dual SIM 5G Black 12G RAM 512GB with 3 Pin adaptor - Global Version", "sku": "N70270100V", "config": {"ram_gb": 12, "rom_gb": 512, "color": "black", "network": "5G", "battery_mah": 6500, "screen": "6.83 in"}, "list_price": 1349.0, "old_price": null, "lowest_price": 1379, "lowest_seller": "noon", "seller_rating": null, "offers_count": 4, "all_offers": [{"seller": "noon", "price": 1349}], "product_url": "https://www.noon.com/uae-en/-/N70270100V/p/", "platform": "noon", "rating": 4.4, "ratings_count": 87, "bestseller_rank": null, "variant_count": 9}, {"id": "B0D7MF2YVG", "brand": "Honor", "model_name": "Honor 200", "full_title": "HONOR 200 5G Smartphone | 512GB ROM + 12GB RAM | 6.7\" 120Hz OLED Display | 50MP Triple Camera | Snap", "sku": "B0D7MF2YVG", "config": {"ram_gb": 12, "rom_gb": 512, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1149, "old_price": null, "lowest_price": 1149, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1149}], "product_url": "https://www.amazon.ae/dp/B0D7MF2YVG", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DBR7HQHM", "brand": "Honor", "model_name": "Honor 200 Smart", "full_title": "Honor 200 Smart DUAL-SIM 256GB ROM + 4GB RAM (GSM | CDMA) Factory Unlocked 5G SmartPhone (Midnight B", "sku": "B0DBR7HQHM", "config": {"ram_gb": 4, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1405, "old_price": null, "lowest_price": 1405, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1405}], "product_url": "https://www.amazon.ae/dp/B0DBR7HQHM", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FCSMDHW6", "brand": "Honor", "model_name": "Honor 400", "full_title": "Honor 400 Dual-SIM 512GB ROM + 12GB RAM (GSM Only | No CDMA) Factory Unlocked 5G Smartphone (Desert ", "sku": "B0FCSMDHW6", "config": {"ram_gb": 12, "rom_gb": 512, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1449, "old_price": null, "lowest_price": 1449, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1449}], "product_url": "https://www.amazon.ae/dp/B0FCSMDHW6", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FDL49KMN", "brand": "Honor", "model_name": "Honor 400 Lite", "full_title": "HONOR 400 Lite 5G – 8GB RAM 256GB ROM, 108MP Motion Sensing Camera, 120Hz 6.7 Inch AMOLED Display, M", "sku": "B0FDL49KMN", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 949.0, "old_price": null, "lowest_price": 949.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 949.0}], "product_url": "https://www.amazon.ae/dp/B0FDL49KMN", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FRSVBHS9", "brand": "Honor", "model_name": "Honor X5c", "full_title": "Honor X5c Plus Dual-SIM 64GB ROM + 4GB RAM (GSM Only | No CDMA) Factor", "sku": "B0FRSVBHS9", "config": {"ram_gb": 4, "rom_gb": 64, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 751, "old_price": null, "lowest_price": 751, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 751}], "product_url": "https://www.amazon.ae/dp/B0FRSVBHS9", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FS7YYYVM", "brand": "Honor", "model_name": "Honor X5c", "full_title": "HONOR X5c Plus 4G Smartphone, 4GB RAM 128GB ROM, Dual SIM, 5130mAh Bat", "sku": "B0FS7YYYVM", "config": {"ram_gb": 4, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 411.0, "old_price": null, "lowest_price": 411.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 411.0}], "product_url": "https://www.amazon.ae/dp/B0FS7YYYVM", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FD4659HT", "brand": "Honor", "model_name": "Honor X6c", "full_title": "HONOR X6c Smartphone 6GB RAM 128GB ROM, 6.61\" 120Hz Display, 50MP Came", "sku": "B0FD4659HT", "config": {"ram_gb": 6, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 451.78, "old_price": null, "lowest_price": 451.78, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 451.78}], "product_url": "https://www.amazon.ae/dp/B0FD4659HT", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GWKKV1BJ", "brand": "Honor", "model_name": "Honor X6c", "full_title": "HONOR X6c Smartphone 6GB RAM 256GB ROM, 6.61\" 120Hz Display, 50MP Came", "sku": "B0GWKKV1BJ", "config": {"ram_gb": 6, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 539, "old_price": null, "lowest_price": 539, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 539}], "product_url": "https://www.amazon.ae/dp/B0GWKKV1BJ", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GM1BJ57B", "brand": "Honor", "model_name": "Honor X6d", "full_title": "HONOR X6d 5G Smartphone, 4GB+4GB RAM, 256GB Storage, Dual SIM, 50MP Ul", "sku": "B0GM1BJ57B", "config": {"ram_gb": 4, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 629, "old_price": null, "lowest_price": 629, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 629}], "product_url": "https://www.amazon.ae/dp/B0GM1BJ57B", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FQJBQDFF", "brand": "Honor", "model_name": "Honor X7d", "full_title": "HONOR X7d 5G Smartphone, 6GB RAM 128GB ROM, Dual SIM, 6500mAh Battery (PDP price-checked)", "sku": "B0FQJBQDFF", "config": {"ram_gb": 6, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 485.0, "old_price": null, "lowest_price": 485.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 485.0}], "product_url": "https://www.amazon.ae/dp/B0FQJBQDFF", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FQJBQ4XD", "brand": "Honor", "model_name": "Honor X7d", "full_title": "HONOR X7d 5G Smartphone, 8GB RAM 256GB ROM, Dual SIM, 6500mAh Battery,", "sku": "B0FQJBQ4XD", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 189.0, "old_price": null, "lowest_price": 189.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 189.0}], "product_url": "https://www.amazon.ae/dp/B0FQJBQ4XD", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FYJ3G27S", "brand": "Honor", "model_name": "Honor X9d", "full_title": "Honor X9d 5G Dual SIM (12GB RAM 256GB Storage) |108MP Ultra-Cear AI Ca", "sku": "B0FYJ3G27S", "config": {"ram_gb": 12, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1195.0, "old_price": null, "lowest_price": 1195.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1195.0}], "product_url": "https://www.amazon.ae/dp/B0FYJ3G27S", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DCJMMGNF", "brand": "Samsung", "model_name": "Galaxy A06", "full_title": "Samsung Galaxy A06 LTE (Black, 4GB RAM, 64GB Storage) | 50MP Dual Came", "sku": "B0DCJMMGNF", "config": {"ram_gb": 4, "rom_gb": 64, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 324.85, "old_price": null, "lowest_price": 324.85, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 324.85}], "product_url": "https://www.amazon.ae/dp/B0DCJMMGNF", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FL7TLXDF", "brand": "Samsung", "model_name": "Galaxy A06", "full_title": "Samsung Galaxy A06 5G Smartphone, Light Gray, 6GB RAM, 128GB Storage, ", "sku": "B0FL7TLXDF", "config": {"ram_gb": 6, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 591, "old_price": null, "lowest_price": 591, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 591}], "product_url": "https://www.amazon.ae/dp/B0FL7TLXDF", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FLDHTQY4", "brand": "Samsung", "model_name": "Galaxy A07", "full_title": "Samsung Galaxy A07 LTE, Android Smartphone, 64GB Storage, 4GB RAM, Gre", "sku": "B0FLDHTQY4", "config": {"ram_gb": 4, "rom_gb": 64, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 331.94, "old_price": null, "lowest_price": 331.94, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 331.94}], "product_url": "https://www.amazon.ae/dp/B0FLDHTQY4", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FLDK4MMS", "brand": "Samsung", "model_name": "Galaxy A07", "full_title": "Samsung Galaxy A07 LTE, Android Smartphone, 128GB Storage, 4GB RAM, Bl", "sku": "B0FLDK4MMS", "config": {"ram_gb": 4, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 369.0, "old_price": null, "lowest_price": 369.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 369.0}], "product_url": "https://www.amazon.ae/dp/B0FLDK4MMS", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GHWGQMJ1", "brand": "Samsung", "model_name": "Galaxy A07 5G", "full_title": "Samsung Galaxy A07 5G Smartphone (Light Violet, 4GB RAM, 128GB Storage", "sku": "B0GHWGQMJ1", "config": {"ram_gb": 4, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 535, "old_price": null, "lowest_price": 535, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 535}], "product_url": "https://www.amazon.ae/dp/B0GHWGQMJ1", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FNCYB5N1", "brand": "Samsung", "model_name": "Galaxy A17", "full_title": "Samsung Galaxy A17 LTE, Android Smartphone, 128GB Storage, 4GB RAM, Bl", "sku": "B0FNCYB5N1", "config": {"ram_gb": 4, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 519.0, "old_price": null, "lowest_price": 519.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 519.0}], "product_url": "https://www.amazon.ae/dp/B0FNCYB5N1", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FND1GG2X", "brand": "Samsung", "model_name": "Galaxy A17", "full_title": "Samsung Galaxy A17 LTE, Android Smartphone, 128GB Storage, 6GB RAM, Bl", "sku": "B0FND1GG2X", "config": {"ram_gb": 6, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 598, "old_price": null, "lowest_price": 598, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 598}], "product_url": "https://www.amazon.ae/dp/B0FND1GG2X", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FNCZKDS2", "brand": "Samsung", "model_name": "Galaxy A17", "full_title": "Samsung Galaxy A17 LTE, Android Smartphone, 256GB Storage, 8GB RAM, Bl", "sku": "B0FNCZKDS2", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 699.0, "old_price": null, "lowest_price": 699.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 699.0}], "product_url": "https://www.amazon.ae/dp/B0FNCZKDS2", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DZHPR6CS", "brand": "Samsung", "model_name": "Galaxy A26 5G", "full_title": "Samsung Galaxy A26 5G, Android Smartphone, 128GB Storage, 6GB RAM, Bla", "sku": "B0DZHPR6CS", "config": {"ram_gb": 6, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 697.0, "old_price": null, "lowest_price": 697.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 697.0}], "product_url": "https://www.amazon.ae/dp/B0DZHPR6CS", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0F48RGQLJ", "brand": "Samsung", "model_name": "Galaxy A26 5G", "full_title": "Samsung Galaxy A26 5G, Android Smartphone, 256GB Storage, 8GB RAM, Bla", "sku": "B0F48RGQLJ", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 867, "old_price": null, "lowest_price": 867, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 867}], "product_url": "https://www.amazon.ae/dp/B0F48RGQLJ", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0F26DRH7K", "brand": "Samsung", "model_name": "Galaxy A36 5G", "full_title": "Samsung Galaxy A36 5G, Android Smartphone, 128GB Storage, 6GB RAM, Awe", "sku": "B0F26DRH7K", "config": {"ram_gb": 6, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 849, "old_price": null, "lowest_price": 849, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 849}], "product_url": "https://www.amazon.ae/dp/B0F26DRH7K", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DZHL1LWX", "brand": "Samsung", "model_name": "Galaxy A36 5G", "full_title": "Samsung Galaxy A36 5G, Android Smartphone, 128GB Storage, 8GB RAM, Awe", "sku": "B0DZHL1LWX", "config": {"ram_gb": 8, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 950.0, "old_price": null, "lowest_price": 950.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 950.0}], "product_url": "https://www.amazon.ae/dp/B0DZHL1LWX", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DZHNWVV6", "brand": "Samsung", "model_name": "Galaxy A36 5G", "full_title": "Samsung Galaxy A36 5G, Android Smartphone, 256GB Storage, 8GB RAM, Awe", "sku": "B0DZHNWVV6", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1029.0, "old_price": null, "lowest_price": 1029.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1029.0}], "product_url": "https://www.amazon.ae/dp/B0DZHNWVV6", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GSW3PR9Z", "brand": "Samsung", "model_name": "Galaxy A37", "full_title": "Samsung Galaxy A37 5G Android Smartphone, 256GB Storage, 8GB RAM, Awes", "sku": "B0GSW3PR9Z", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1269.0, "old_price": null, "lowest_price": 1269.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1269.0}], "product_url": "https://www.amazon.ae/dp/B0GSW3PR9Z", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DZHM5PN7", "brand": "Samsung", "model_name": "Galaxy A56 5G", "full_title": "Samsung Galaxy A56 5G, Android Smartphone, 128GB Storage, 8GB RAM, Awe", "sku": "B0DZHM5PN7", "config": {"ram_gb": 8, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1199, "old_price": null, "lowest_price": 1199, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1199}], "product_url": "https://www.amazon.ae/dp/B0DZHM5PN7", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DZHP3Q8M", "brand": "Samsung", "model_name": "Galaxy A56 5G", "full_title": "Samsung Galaxy A56 5G, Android Smartphone, 256GB Storage, 8GB RAM, Awe", "sku": "B0DZHP3Q8M", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1278.0, "old_price": null, "lowest_price": 1278.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1278.0}], "product_url": "https://www.amazon.ae/dp/B0DZHP3Q8M", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0F48W6LKX", "brand": "Samsung", "model_name": "Galaxy A56 5G", "full_title": "Samsung Galaxy A56 5G, Android Smartphone, 256GB Storage, 12GB RAM, 6x", "sku": "B0F48W6LKX", "config": {"ram_gb": 12, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1340, "old_price": null, "lowest_price": 1340, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1340}], "product_url": "https://www.amazon.ae/dp/B0F48W6LKX", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GSVXYFQB", "brand": "Samsung", "model_name": "Galaxy A57", "full_title": "Samsung Galaxy A57 5G Android Smartphone, 128GB Storage, 8GB RAM, Awes", "sku": "B0GSVXYFQB", "config": {"ram_gb": 8, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1373.57, "old_price": null, "lowest_price": 1373.57, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1373.57}], "product_url": "https://www.amazon.ae/dp/B0GSVXYFQB", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GSVQJ1XX", "brand": "Samsung", "model_name": "Galaxy A57", "full_title": "Samsung Galaxy A57 5G Android Smartphone, 256GB Storage, 8GB RAM, Awes", "sku": "B0GSVQJ1XX", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1381.0, "old_price": null, "lowest_price": 1381.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1381.0}], "product_url": "https://www.amazon.ae/dp/B0GSVQJ1XX", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GSVY584Z", "brand": "Samsung", "model_name": "Galaxy A57", "full_title": "Samsung Galaxy A57 5G Android Smartphone, 256GB Storage, 12GB RAM, Awe", "sku": "B0GSVY584Z", "config": {"ram_gb": 12, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1739, "old_price": null, "lowest_price": 1739, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1739}], "product_url": "https://www.amazon.ae/dp/B0GSVY584Z", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FT7VK6TZ", "brand": "Samsung", "model_name": "Galaxy F36 5G", "full_title": "Samsung Galaxy F36 5G Smartphone (Red, 6GB RAM, 128GB Storage) | 50MP ", "sku": "B0FT7VK6TZ", "config": {"ram_gb": 6, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 639.2, "old_price": null, "lowest_price": 639.2, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 639.2}], "product_url": "https://www.amazon.ae/dp/B0FT7VK6TZ", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GNZSK9HJ", "brand": "Samsung", "model_name": "Galaxy F70e 5G", "full_title": "Samsung Galaxy F70e 5G (Spotlight Blue, 4GB RAM, 128GB Storage) | Dime", "sku": "B0GNZSK9HJ", "config": {"ram_gb": 4, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 499, "old_price": null, "lowest_price": 499, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 499}], "product_url": "https://www.amazon.ae/dp/B0GNZSK9HJ", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GNYYVQGT", "brand": "Samsung", "model_name": "Galaxy F70e 5G", "full_title": "Samsung Galaxy F70e 5G (Limelight Green 6GB RAM, 128GB Storage) | Dime", "sku": "B0GNYYVQGT", "config": {"ram_gb": 6, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 599, "old_price": null, "lowest_price": 599, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 599}], "product_url": "https://www.amazon.ae/dp/B0GNYYVQGT", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DF2WPDTV", "brand": "Xiaomi", "model_name": "Redmi 14C", "full_title": "Xiaomi Redmi 14C Sage Green 4GB RAM 128GB ROM", "sku": "B0DF2WPDTV", "config": {"ram_gb": 4, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 59.0, "old_price": null, "lowest_price": 59.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 59.0}], "product_url": "https://www.amazon.ae/dp/B0DF2WPDTV", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DJ9X3XBX", "brand": "Xiaomi", "model_name": "Redmi 14C", "full_title": "Redmi 14C 4G (Midnight Black 8GB RAM, 256GB Storage)", "sku": "B0DJ9X3XBX", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 460.69, "old_price": null, "lowest_price": 460.69, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 460.69}], "product_url": "https://www.amazon.ae/dp/B0DJ9X3XBX", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FJFSHJ6Z", "brand": "Xiaomi", "model_name": "Redmi 15", "full_title": "Redmi 15 5G Midnight Black 8GB + 256GB | Segment's Largest 7000mAhA Ba", "sku": "B0FJFSHJ6Z", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 619, "old_price": null, "lowest_price": 619, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 619}], "product_url": "https://www.amazon.ae/dp/B0FJFSHJ6Z", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0FMPBZ1RL", "brand": "Xiaomi", "model_name": "Redmi 15C", "full_title": "XIAOMI Redmi 15C 4G Mint Green 4GB+128GB, Massive 6000mAH Battery, 120", "sku": "B0FMPBZ1RL", "config": {"ram_gb": 4, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 2348.0, "old_price": null, "lowest_price": 2348.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 2348.0}], "product_url": "https://www.amazon.ae/dp/B0FMPBZ1RL", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GNRW53DJ", "brand": "Xiaomi", "model_name": "Redmi 15C", "full_title": "XIAOMI (Renewed) Redmi 15C 4G Midnight Black 8GB+256GB, Massive 6000mA", "sku": "B0GNRW53DJ", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 349, "old_price": null, "lowest_price": 349, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 349}], "product_url": "https://www.amazon.ae/dp/B0GNRW53DJ", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DTV9CBZW", "brand": "Xiaomi", "model_name": "Redmi A4", "full_title": "Redmi A4 5G (Starry Black, 4GB RAM, 128GB Storage) | Global Debut SD 4", "sku": "B0DTV9CBZW", "config": {"ram_gb": 4, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 673, "old_price": null, "lowest_price": 673, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 673}], "product_url": "https://www.amazon.ae/dp/B0DTV9CBZW", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0F2NDQ4DY", "brand": "Xiaomi", "model_name": "Redmi A5", "full_title": "Redmi A5 Sandy Gold 3GB RAM 64GB ROM", "sku": "B0F2NDQ4DY", "config": {"ram_gb": 3, "rom_gb": 64, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 320, "old_price": null, "lowest_price": 320, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 320}], "product_url": "https://www.amazon.ae/dp/B0F2NDQ4DY", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0F2NF42LL", "brand": "Xiaomi", "model_name": "Redmi A5", "full_title": "Redmi A5 Lake Green 4GB RAM 128GB ROM", "sku": "B0F2NF42LL", "config": {"ram_gb": 4, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 360.0, "old_price": null, "lowest_price": 360.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 360.0}], "product_url": "https://www.amazon.ae/dp/B0F2NF42LL", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0GSF4V8LM", "brand": "Xiaomi", "model_name": "Redmi A7 Pro", "full_title": "Xiaomi Redmi A7 Pro Smartphone 4+128GB, 6.9\" Immersive Display, 800nit", "sku": "B0GSF4V8LM", "config": {"ram_gb": 4, "rom_gb": 128, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 395.0, "old_price": null, "lowest_price": 395.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 395.0}], "product_url": "https://www.amazon.ae/dp/B0GSF4V8LM", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DQYL36TR", "brand": "Xiaomi", "model_name": "Redmi Note 14", "full_title": "Xiaomi Redmi Note 14 Smartphone 8+256GB, 108MP AI Camera System, 5500m", "sku": "B0DQYL36TR", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 639.85, "old_price": null, "lowest_price": 639.85, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 639.85}], "product_url": "https://www.amazon.ae/dp/B0DQYL36TR", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0DQYL8J15", "brand": "Xiaomi", "model_name": "Redmi Note 14 Pro+", "full_title": "Xiaomi Redmi Note 14 Pro+ 5G Smartphone 12+512GB, 200MP Pro-grade AI C", "sku": "B0DQYL8J15", "config": {"ram_gb": 12, "rom_gb": 512, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1298, "old_price": null, "lowest_price": 1298, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1298}], "product_url": "https://www.amazon.ae/dp/B0DQYL8J15", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0G6V2J7TL", "brand": "Xiaomi", "model_name": "Redmi Note 15", "full_title": "Xiaomi Redmi Note 15 Smartphone 8+256GB, 6000mAh Battery, 108MP Camera", "sku": "B0G6V2J7TL", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 689.0, "old_price": null, "lowest_price": 689.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 689.0}], "product_url": "https://www.amazon.ae/dp/B0G6V2J7TL", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0G6V24Y73", "brand": "Xiaomi", "model_name": "Redmi Note 15 Pro", "full_title": "Redmi Note 15 Pro Smartphone (8GB RAM, 256GB Storage), 200MP Camera, 6", "sku": "B0G6V24Y73", "config": {"ram_gb": 8, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 919, "old_price": null, "lowest_price": 919, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 919}], "product_url": "https://www.amazon.ae/dp/B0G6V24Y73", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}, {"id": "B0H31JXTBK", "brand": "Xiaomi", "model_name": "Redmi Note 15 Pro", "full_title": "Redmi Note 15 Pro 5G Smartphone (12GB RAM, 256GB Storage), 200MP Camer", "sku": "B0H31JXTBK", "config": {"ram_gb": 12, "rom_gb": 256, "color": null, "network": null, "battery_mah": null, "screen": null}, "list_price": 1196.0, "old_price": null, "lowest_price": 1196.0, "lowest_seller": "Amazon.ae", "seller_rating": null, "offers_count": 1, "all_offers": [{"seller": "Amazon.ae", "price": 1196.0}], "product_url": "https://www.amazon.ae/dp/B0H31JXTBK", "platform": "amazon", "rating": null, "ratings_count": null, "bestseller_rank": null, "variant_count": 1}]};
+const EMBEDDED_HISTORY = {"N70133770V": {"2026-07-01": 1149, "2026-07-02": 1149, "2026-07-03": 1149, "2026-07-04": 1149, "2026-07-05": 1149, "2026-07-06": 1149}, "N70156486V": {"2026-07-01": 539, "2026-07-02": 539, "2026-07-03": 539, "2026-07-04": 539, "2026-07-05": 539, "2026-07-06": 539}, "N70189536V": {"2026-07-01": 1328, "2026-07-02": 1329, "2026-07-03": 1329, "2026-07-04": 1329, "2026-07-05": 1329, "2026-07-06": 1329}, "N70201108V": {"2026-07-01": 1380, "2026-07-02": 1380, "2026-07-03": 1380, "2026-07-04": 1380, "2026-07-05": 1380, "2026-07-06": 1380}, "N70189236V": {"2026-07-01": 903, "2026-07-02": 903, "2026-07-03": 903, "2026-07-04": 903, "2026-07-05": 903, "2026-07-06": 903}, "N70256801V": {"2026-07-01": 845, "2026-07-02": 845, "2026-07-03": 845, "2026-07-04": 845, "2026-07-05": 845, "2026-07-06": 845}, "N51631887A": {"2026-07-01": 940, "2026-07-02": 940, "2026-07-03": 940, "2026-07-04": 940, "2026-07-05": 940, "2026-07-06": 940}, "N70314489V": {"2026-07-01": 1029, "2026-07-02": 999, "2026-07-03": 999, "2026-07-04": 999, "2026-07-05": 999, "2026-07-06": 999}, "N70306365V": {"2026-07-01": 1058, "2026-07-02": 1068.98, "2026-07-03": 1068.98, "2026-07-04": 1068.98, "2026-07-05": 1068.98, "2026-07-06": 1068.98}, "N70220290V": {"2026-07-01": 398.9, "2026-07-02": 398.9, "2026-07-03": 398.95, "2026-07-04": 398.95, "2026-07-05": 398.9, "2026-07-06": 398.9}, "N70221570V": {"2026-07-01": 375, "2026-07-02": 414, "2026-07-03": 414, "2026-07-04": 414, "2026-07-05": 414, "2026-07-06": 414}, "N70185239V": {"2026-07-01": 499, "2026-07-02": 504, "2026-07-03": 504, "2026-07-04": 499.0, "2026-07-05": 504.0, "2026-07-06": 504.0}, "N70185234V": {"2026-07-01": 553, "2026-07-02": 552.55, "2026-07-03": 553.0, "2026-07-04": 552.45, "2026-07-05": 563.0, "2026-07-06": 567.98}, "N70282286V": {"2026-07-01": 1004.66, "2026-07-02": 611, "2026-07-03": 1004.66, "2026-07-04": 611.0, "2026-07-05": 1000.08, "2026-07-06": 611.0}, "N70211448V": {"2026-07-01": 785, "2026-07-02": 785, "2026-07-03": 785, "2026-07-04": 785, "2026-07-05": 785, "2026-07-06": 785}, "N70213117V": {"2026-07-01": 679, "2026-07-02": 679, "2026-07-03": 679, "2026-07-04": 679, "2026-07-05": 679, "2026-07-06": 679}, "N70372357V": {"2026-07-01": 699, "2026-07-02": 698.95, "2026-07-03": 698.95, "2026-07-04": 698.95, "2026-07-05": 648.65, "2026-07-06": 648.6}, "N70162668V": {"2026-07-01": 870, "2026-07-02": 870, "2026-07-03": 870, "2026-07-04": 870, "2026-07-05": 870, "2026-07-06": 870}, "N70276628V": {"2026-07-01": 895, "2026-07-02": 895, "2026-07-03": 895, "2026-07-04": 895, "2026-07-05": 895, "2026-07-06": 895}, "N70276625V": {"2026-07-01": 1159, "2026-07-02": 1159, "2026-07-03": 1159, "2026-07-04": 1159, "2026-07-05": 1159, "2026-07-06": 1159}, "N70261004V": {"2026-07-01": 1129, "2026-07-02": 1129, "2026-07-03": 1129, "2026-07-04": 1162.0, "2026-07-05": 1161.95, "2026-07-06": 1162.0}, "N70199443V": {"2026-07-01": 310, "2026-07-02": 310, "2026-07-03": 310, "2026-07-04": 319.8, "2026-07-05": 319.8, "2026-07-06": 325.0}, "N70168379V": {"2026-07-01": 508, "2026-07-02": 559, "2026-07-03": 559, "2026-07-04": 559, "2026-07-05": 559, "2026-07-06": 559}, "N70202445V": {"2026-07-01": 325, "2026-07-02": 329, "2026-07-03": 329, "2026-07-04": 332.0, "2026-07-05": 333.95, "2026-07-06": 334.0}, "N70202444V": {"2026-07-01": 379, "2026-07-02": 442.95, "2026-07-03": 442.95, "2026-07-04": 443.2, "2026-07-05": 399.0, "2026-07-06": 442.95}, "N70341807V": {"2026-07-01": 483, "2026-07-02": 483, "2026-07-03": 515.0, "2026-07-04": 579.0, "2026-07-05": 499.0, "2026-07-06": 499.0}, "N70377203V": {"2026-07-01": 578, "2026-07-02": 578, "2026-07-03": 609.0, "2026-07-04": 609.0, "2026-07-05": 609.0, "2026-07-06": 609.0}, "N70126885V": {"2026-07-01": 439, "2026-07-02": 440, "2026-07-03": 479.0, "2026-07-04": 489.0, "2026-07-05": 489.0, "2026-07-06": 489.0}, "N70214272V": {"2026-07-01": 499, "2026-07-02": 555, "2026-07-03": 555, "2026-07-04": 553.0, "2026-07-05": 579.0, "2026-07-06": 538.95}, "N70214275V": {"2026-07-01": 599, "2026-07-02": 599.1, "2026-07-03": 599.1, "2026-07-04": 599.1, "2026-07-05": 599.1, "2026-07-06": 599.1}, "N70221016V": {"2026-07-01": 689, "2026-07-02": 689, "2026-07-03": 689, "2026-07-04": 689, "2026-07-05": 749.0, "2026-07-06": 749.0}, "N70338947V": {"2026-07-01": 641, "2026-07-02": 641, "2026-07-03": 657.0, "2026-07-04": 699.0, "2026-07-05": 689.0, "2026-07-06": 689.0}, "N70245422V": {"2026-07-01": 759, "2026-07-02": 759, "2026-07-03": 745.0, "2026-07-04": 740.0, "2026-07-05": 740.0, "2026-07-06": 740.0}, "N70167829V": {"2026-07-01": 729, "2026-07-02": 729, "2026-07-03": 729, "2026-07-04": 729, "2026-07-05": 729}, "N70158910V": {"2026-07-01": 699, "2026-07-04": 692.0}, "N70158914V": {"2026-07-01": 888.95, "2026-07-02": 879.35, "2026-07-03": 879.4, "2026-07-04": 879.0, "2026-07-05": 879.0, "2026-07-06": 888.95}, "N70357596V": {"2026-07-01": 848, "2026-07-02": 848, "2026-07-03": 847.75, "2026-07-04": 899.0, "2026-07-05": 858.95, "2026-07-06": 858.95}, "N70158917V": {"2026-07-01": 947.99, "2026-07-02": 947.99, "2026-07-03": 947.99, "2026-07-04": 948.95, "2026-07-05": 948.95, "2026-07-06": 948.95}, "N70165213V": {"2026-07-01": 1049, "2026-07-02": 1049, "2026-07-03": 1049, "2026-07-04": 1049, "2026-07-05": 1049, "2026-07-06": 1049}, "N70342179V": {"2026-07-01": 1149, "2026-07-02": 1499, "2026-07-03": 1499, "2026-07-04": 1499, "2026-07-05": 1499, "2026-07-06": 1499}, "N70158926V": {"2026-07-01": 1197, "2026-07-02": 1195.15, "2026-07-03": 1195.15, "2026-07-04": 1189.15, "2026-07-05": 1189.15, "2026-07-06": 1189.15}, "N70158930V": {"2026-07-01": 1219, "2026-07-02": 1219, "2026-07-03": 1219, "2026-07-04": 1249.3, "2026-07-05": 1250.0, "2026-07-06": 1270.1}, "N70161290V": {"2026-07-01": 1390, "2026-07-02": 1389, "2026-07-03": 1388.4, "2026-07-04": 1359.0, "2026-07-05": 1359.0, "2026-07-06": 1359.0}, "N70320358V": {"2026-07-01": 1299, "2026-07-02": 1298.25, "2026-07-03": 1299.0, "2026-07-04": 1298.2, "2026-07-05": 1298.2, "2026-07-06": 1298.2}, "N70342195V": {"2026-07-01": 1274, "2026-07-02": 1272.5, "2026-07-03": 1272.5, "2026-07-04": 1271.0, "2026-07-05": 1278.0, "2026-07-06": 1383.95}, "N70342188V": {"2026-07-01": 1379, "2026-07-02": 1448.95, "2026-07-03": 1448.95, "2026-07-04": 1362.0, "2026-07-05": 1362.0, "2026-07-06": 1362.0}, "N70304888V": {"2026-07-01": 635, "2026-07-02": 635, "2026-07-03": 644.15, "2026-07-04": 644.15, "2026-07-05": 648.95, "2026-07-06": 648.95}, "N70378351V": {"2026-07-01": 459, "2026-07-02": 459, "2026-07-03": 460.0, "2026-07-04": 460.0, "2026-07-05": 460.0, "2026-07-06": 460.0}, "N70378430V": {"2026-07-01": 544, "2026-07-02": 544, "2026-07-03": 547.0, "2026-07-04": 579.0, "2026-07-05": 547.0, "2026-07-06": 547.0}, "N70275995V": {"2026-07-01": 325, "2026-07-02": 329, "2026-07-03": 329, "2026-07-04": 329, "2026-07-05": 342.0, "2026-07-06": 342.0}, "N70338582V": {"2026-07-01": 520, "2026-07-02": 520, "2026-07-03": 520, "2026-07-04": 520, "2026-07-05": 543.0, "2026-07-06": 545.0}, "N70251420V": {"2026-07-01": 605, "2026-07-02": 620, "2026-07-03": 620, "2026-07-04": 620, "2026-07-05": 619.0, "2026-07-06": 619.0}, "N70278491V": {"2026-07-01": 668.95, "2026-07-02": 676, "2026-07-03": 685.0, "2026-07-04": 685.0, "2026-07-05": 685.0, "2026-07-06": 685.0}, "N70345517V": {"2026-07-01": 450, "2026-07-02": 465, "2026-07-03": 465, "2026-07-04": 551.85, "2026-07-05": 475.0, "2026-07-06": 475.0}, "N70345518V": {"2026-07-01": 577, "2026-07-02": 669.7, "2026-07-03": 678.95, "2026-07-04": 678.95, "2026-07-05": 678.95, "2026-07-06": 678.95}, "N50878251A": {"2026-07-01": 500, "2026-07-02": 500, "2026-07-03": 500, "2026-07-04": 500, "2026-07-05": 500, "2026-07-06": 500}, "N70040314V": {"2026-07-01": 299, "2026-07-02": 299, "2026-07-03": 299, "2026-07-04": 299, "2026-07-05": 299}, "N70368853V": {"2026-07-01": 333, "2026-07-02": 353, "2026-07-03": 353, "2026-07-04": 353, "2026-07-05": 353, "2026-07-06": 353}, "N70102641V": {"2026-07-01": 379, "2026-07-02": 419, "2026-07-03": 419, "2026-07-04": 419, "2026-07-05": 419, "2026-07-06": 419}, "N70144136V": {"2026-07-01": 449, "2026-07-02": 449, "2026-07-03": 449, "2026-07-04": 449, "2026-07-05": 449, "2026-07-06": 449}, "N70101566V": {"2026-07-01": 383}, "N70244001V": {"2026-07-01": 649, "2026-07-02": 649, "2026-07-03": 649, "2026-07-04": 649, "2026-07-05": 649, "2026-07-06": 649}, "N70203284V": {"2026-07-01": 418.95, "2026-07-02": 405, "2026-07-03": 405, "2026-07-04": 399.99, "2026-07-05": 400.99, "2026-07-06": 400.99}, "N70203297V": {"2026-07-01": 479, "2026-07-02": 479, "2026-07-03": 479, "2026-07-04": 479, "2026-07-05": 479, "2026-07-06": 479}, "N70378958V": {"2026-07-01": 639, "2026-07-02": 639, "2026-07-03": 649.0, "2026-07-04": 649.0, "2026-07-05": 649.0, "2026-07-06": 649.0}, "N70203293V": {"2026-07-01": 477.35, "2026-07-02": 545, "2026-07-03": 545, "2026-07-04": 545, "2026-07-05": 545, "2026-07-06": 545}, "N70098405V": {"2026-07-01": 399, "2026-07-02": 399, "2026-07-03": 399, "2026-07-04": 399, "2026-07-05": 399, "2026-07-06": 399}, "N70148652V": {"2026-07-01": 599, "2026-07-02": 599, "2026-07-03": 599, "2026-07-04": 599, "2026-07-05": 599, "2026-07-06": 599}, "N70166025V": {"2026-07-01": 339, "2026-07-02": 339, "2026-07-03": 339, "2026-07-04": 339, "2026-07-05": 339, "2026-07-06": 339}, "N70166024V": {"2026-07-01": 345, "2026-07-02": 349, "2026-07-03": 349, "2026-07-04": 349, "2026-07-05": 349, "2026-07-06": 349}, "N70312063V": {"2026-07-01": 349.95, "2026-07-02": 355, "2026-07-03": 355, "2026-07-04": 355, "2026-07-05": 355, "2026-07-06": 355}, "N70312066V": {"2026-07-01": 397, "2026-07-02": 397, "2026-07-03": 397, "2026-07-04": 429.0, "2026-07-05": 429.0, "2026-07-06": 429.0}, "N70112414V": {"2026-07-01": 369, "2026-07-02": 369, "2026-07-03": 369, "2026-07-04": 369, "2026-07-05": 369, "2026-07-06": 369}, "N53351250A": {"2026-07-01": 899, "2026-07-02": 899, "2026-07-03": 899, "2026-07-04": 899, "2026-07-05": 899, "2026-07-06": 899}, "N70038958V": {"2026-07-01": 666, "2026-07-02": 666, "2026-07-03": 666, "2026-07-04": 666, "2026-07-05": 666, "2026-07-06": 666}, "N70048456V": {"2026-07-01": 775, "2026-07-02": 775, "2026-07-03": 775, "2026-07-04": 775, "2026-07-05": 775, "2026-07-06": 775}, "N70037715V": {"2026-07-01": 955, "2026-07-02": 955, "2026-07-03": 1145.0, "2026-07-04": 1145.0, "2026-07-05": 1145.0, "2026-07-06": 1145.0}, "N70030000V": {"2026-07-01": 1540, "2026-07-02": 1540, "2026-07-03": 1540, "2026-07-04": 1540, "2026-07-05": 1540, "2026-07-06": 1540}, "N70135087V": {"2026-07-01": 616, "2026-07-02": 699, "2026-07-03": 699, "2026-07-04": 625.0, "2026-07-05": 640.0, "2026-07-06": 640.0}, "N70135748V": {"2026-07-01": 830, "2026-07-02": 849, "2026-07-03": 849, "2026-07-04": 830.0, "2026-07-05": 849.0, "2026-07-06": 849.0}, "N70135110V": {"2026-07-01": 877, "2026-07-02": 877, "2026-07-03": 877, "2026-07-04": 877, "2026-07-05": 877, "2026-07-06": 877}, "N70185231V": {"2026-07-01": 949, "2026-07-02": 949, "2026-07-03": 949, "2026-07-04": 949, "2026-07-05": 949, "2026-07-06": 949}, "N70135128V": {"2026-07-01": 1199, "2026-07-02": 1299, "2026-07-03": 1299, "2026-07-04": 1299, "2026-07-05": 1299, "2026-07-06": 1299}, "N70135743V": {"2026-07-01": 1295, "2026-07-02": 1296, "2026-07-03": 1296, "2026-07-04": 1296, "2026-07-05": 1296, "2026-07-06": 1296}, "N70168785V": {"2026-07-01": 689, "2026-07-02": 693.95, "2026-07-03": 693.95, "2026-07-04": 693.95, "2026-07-05": 693.95, "2026-07-06": 693.95}, "N70168773V": {"2026-07-01": 819, "2026-07-02": 819, "2026-07-03": 819, "2026-07-04": 819, "2026-07-05": 819, "2026-07-06": 819}, "N70286264V": {"2026-07-01": 619, "2026-07-02": 619, "2026-07-03": 619, "2026-07-04": 619, "2026-07-05": 619, "2026-07-06": 619}, "N70270124V": {"2026-07-01": 649, "2026-07-02": 649, "2026-07-03": 699.0, "2026-07-04": 699.0, "2026-07-05": 699.0, "2026-07-06": 699.0}, "N70270094V": {"2026-07-01": 889, "2026-07-02": 889, "2026-07-03": 899.0, "2026-07-04": 898.0, "2026-07-05": 898.0, "2026-07-06": 898.0}, "N70270927V": {"2026-07-01": 1059, "2026-07-02": 1059, "2026-07-03": 1079.0, "2026-07-04": 1079.0, "2026-07-05": 1079.0, "2026-07-06": 1079.0}, "N70377938V": {"2026-07-01": 1299, "2026-07-02": 1299, "2026-07-03": 1299, "2026-07-04": 1299, "2026-07-05": 1299, "2026-07-06": 1299}, "N70314423V": {"2026-07-01": 1309, "2026-07-02": 1309, "2026-07-03": 1309, "2026-07-04": 1309, "2026-07-05": 1309, "2026-07-06": 1309}, "N70270100V": {"2026-07-01": 1349, "2026-07-02": 1379, "2026-07-03": 1379, "2026-07-04": 1379, "2026-07-05": 1379, "2026-07-06": 1379}}; // populated with real price_history.json content when building the standalone HTML
+const COMPARISON_MAPPING = [{"xiaomi": {"model_name": "Redmi Note 15 Pro+ 5G", "config": "12G+512G", "sku": "N70270100V", "price": 1349}, "samsung": {"model_name": "Galaxy A57 5G", "config": "8G+256G", "sku": "N70342195V", "price": 1274}, "honor": {"model_name": "Honor 600 5G", "config": "8G+256G", "sku": "N70350074V", "price": 1549}}, {"xiaomi": {"model_name": "Redmi Note 15 Pro 5G", "config": "8G+256G", "sku": "N70270094V", "price": 889}, "samsung": {"model_name": "Galaxy A37 5G", "config": "8G+256G", "sku": "N70342179V", "price": 1149}, "honor": {"model_name": "Honor 600 Lite", "config": "8G+256G", "sku": "N70306365V", "price": 1058}}, {"xiaomi": {"model_name": "Redmi Note 15", "config": "8G+256G", "sku": "N70270124V", "price": 649}, "samsung": {"model_name": "Galaxy A26 5G", "config": "8G+256G", "sku": "N70158914V", "price": 888.95}, "honor": {"model_name": "Honor X8d", "config": "8G+256G", "sku": "N70276628V", "price": 895}}, {"xiaomi": {"model_name": "Redmi 15 5G", "config": "8G+256G", "sku": "N70199710V", "price": 699}, "samsung": {"model_name": "Galaxy A17", "config": "8G+256G", "sku": "N70221016V", "price": 689}, "honor": {"model_name": "Honor X7e", "config": "6G+256G", "sku": "N70372357V", "price": 699, "note": "noon 上该机型实际只有 6G+128G 在售，未找到 6G+256G 版本，此处用 128G 版本价格代替"}}, {"xiaomi": {"model_name": "POCO C85", "config": "8G+256G", "sku": "N70197079V", "price": 537.95}, "samsung": {"model_name": "Galaxy A07", "config": "6G+128G", "sku": "N70377203V", "price": 578, "note": "noon 上该配置为 5G 版本（非 5G 版最高只有 4G RAM），此处用 Galaxy A07 5G 6G+128G 版本价格代替"}, "honor": {"model_name": "Honor X6c", "config": "6G+256G", "sku": "N70185234V", "price": 553}}, {"xiaomi": {"model_name": "Redmi A7 Pro", "config": "4G+128G", "sku": "N70312066V", "price": 397}, "samsung": {"model_name": "Galaxy A07", "config": "4G+128G", "sku": "N70202444V", "price": 379}, "honor": {"model_name": "Honor X5c Plus", "config": "4G+128G", "sku": "N70221570V", "price": 375}}];
+let allProducts = [];
+// Default view groups rows by brand -> product -> RAM/ROM (ascending), with
+// same-config rows from different platforms kept adjacent — e.g.
+// "Redmi 13C 4G+128G" (noon, then amazon) followed by "Redmi 13C 8G+256G"
+// (noon, then amazon). This makes cross-platform price comparison for the
+// same model+config a matter of just glancing at neighboring rows, instead
+// of scrolling through a price-sorted list where they can end up far apart.
+let sortKey = 'model_config';
+let sortDir = 'asc';
+const trendCache = {};
+
+// Empty array = "no filter applied" (equivalent to the old 'all'). Non-empty
+// array = only show items whose value is included in it (multi-select).
+// This drives the KPI cards, brand cards, and the product table.
+const state = { platform: [], brand: [], product: [] };
+// Independent filter state for the quick-filter row next to the Price Trend
+// chart. Deliberately a SEPARATE object from `state` — selecting brands/
+// models here only changes which lines are plotted on the trend chart and
+// must not affect the KPI cards, brand cards, or the table below.
+const trendState = { brand: [], product: [] };
+// Independent filter state for the Xiaomi noon-vs-amazon price-gap bar chart.
+// Its own store too — selecting models here must not touch `state` or
+// `trendState`, matching the trend chart's quick filter pattern.
+const xiaomiCompareState = { product: [] };
+const msUI = {}; // per-widget-instance-id UI state: { open, search }
+let msInstances = []; // populated each render() cycle, reused by open/close toggles
+
+const BRAND_LABEL = { Xiaomi: 'Xiaomi', Samsung: 'Samsung', Honor: 'Honor' };
+function brandLabel(b) { return BRAND_LABEL[b] || b; }
+function configLabel(cfg) { return `${cfg.ram_gb}G+${cfg.rom_gb}G`; }
+
+function dedupeByModelAndConfig(products) {
+  // Same model_name + same RAM/ROM config = same "product" for our purposes.
+  // Color is intentionally NOT part of the grouping key — we only ever keep
+  // the single lowest-priced entry across all color variants of that config.
+  // Platform IS part of the key: the same config sold on both noon and
+  // amazon should show up as two separate rows so prices can be compared
+  // side by side, not collapsed down to whichever platform is cheaper.
+  const bestByKey = new Map();
+  for (const p of products) {
+    const key = `${p.platform}__${p.brand}__${p.model_name}__${p.config.ram_gb}__${p.config.rom_gb}`;
+    const existing = bestByKey.get(key);
+    if (!existing || p.lowest_price < existing.lowest_price) {
+      bestByKey.set(key, p);
+    }
+  }
+  return Array.from(bestByKey.values());
+}
+
+async function boot() {
+  let data;
+  if (typeof EMBEDDED_DATA !== 'undefined' && EMBEDDED_DATA && EMBEDDED_DATA.products) {
+    data = EMBEDDED_DATA;
+  } else {
+    const res = await fetch(API_BASE + '/api/phones');
+    data = await res.json();
+  }
+  allProducts = dedupeByModelAndConfig(data.products);
+
+  document.getElementById('footer-note').textContent =
+    `Source: ${data.platform} (${data.region}) · Scraped at ${data.scraped_at} · Price = lowest offer among all sellers for that SKU on the day of scraping. Price trend chart above uses real recorded snapshots, one point per day this data has actually been re-scraped.`;
+
+  wireFilterEvents();
+  render();
+}
+
+function applyFilters(products, { skipPlatform = false, skipBrand = false, skipProduct = false } = {}) {
+  return products.filter(p => {
+    if (!skipPlatform && state.platform.length && !state.platform.includes(p.platform)) return false;
+    if (!skipBrand && state.brand.length && !state.brand.includes(p.brand)) return false;
+    if (!skipProduct && state.product.length && !state.product.includes(p.model_name)) return false;
+    return true;
+  });
+}
+
+function uniqueSorted(arr) { return [...new Set(arr)].sort(); }
+
+// ---------- Multi-select-with-search dropdown widget ----------
+// Same `state[key]` array can back several independent widget instances at
+// once (e.g. the main filter bar's Brand dropdown and the compact one next
+// to the trend chart) — selecting in one updates the other on next render().
+function ensureMsUI(id) {
+  if (!msUI[id]) msUI[id] = { open: false, search: '' };
+  return msUI[id];
+}
+
+function closeAllMsPanels() {
+  Object.values(msUI).forEach(ui => { ui.open = false; });
+}
+
+// `.glow-card` cards use backdrop-filter, which creates its own stacking
+// context — a later sibling card would otherwise paint over an open
+// dropdown's options list regardless of the panel's own z-index. Bumping
+// the currently-open dropdown's containing card above its siblings fixes
+// this. At most one ms-panel is ever open at a time (closeAllMsPanels()
+// above enforces that), so this only ever elevates a single card.
+function syncElevatedCard() {
+  document.querySelectorAll('.glow-card.ms-elevated').forEach(el => el.classList.remove('ms-elevated'));
+  const openId = Object.keys(msUI).find(id => msUI[id].open);
+  if (openId) {
+    const container = document.getElementById(openId);
+    const card = container && container.closest('.glow-card');
+    if (card) card.classList.add('ms-elevated');
+  }
+}
+
+function msOptionsHtml(store, options, search, key) {
+  const filtered = options.filter(o => (BRAND_LABEL[o] || o).toLowerCase().includes(search.toLowerCase()));
+  if (!filtered.length) return '<div class="ms-empty">No matches</div>';
+  return filtered.map(o => `
+    <label class="ms-option">
+      <input type="checkbox" value="${o}" ${store[key].includes(o) ? 'checked' : ''} />
+      <span>${BRAND_LABEL[o] || o}</span>
+    </label>
+  `).join('');
+}
+
+function toggleMsValue(store, key, val) {
+  const arr = store[key];
+  const idx = arr.indexOf(val);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+  render();
+}
+
+// `store` is the plain object holding the filter arrays this particular
+// widget instance reads/writes (either the shared `state` used by the main
+// filter bar, or the independent `trendState` used by the trend-chart-only
+// quick filter). Two instances can point at the same store (that's how the
+// main Brand dropdown and a hypothetical duplicate would stay in sync) or at
+// different stores (that's how the quick filter stays scoped to the trend
+// chart alone).
+function renderMultiSelect(containerId, { store, key, options, allLabel }) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const ui = ensureMsUI(containerId);
+
+  const labelText = store[key].length === 0
+    ? allLabel
+    : store[key].length <= 2
+      ? store[key].map(v => BRAND_LABEL[v] || v).join(', ')
+      : `${store[key].length} selected`;
+
+  container.innerHTML = `
+    <button type="button" class="ms-button">${labelText}<span class="ms-caret">▾</span></button>
+    <div class="ms-panel" ${ui.open ? '' : 'hidden'}>
+      <div class="ms-search"><input type="text" placeholder="Search..." value="${ui.search.replace(/"/g, '&quot;')}" /></div>
+      <div class="ms-actions">
+        <button type="button" data-act="all">Select All</button>
+        <button type="button" data-act="clear">Clear</button>
+      </div>
+      <div class="ms-options">${msOptionsHtml(store, options, ui.search, key)}</div>
+    </div>
+  `;
+
+  const btn = container.querySelector('.ms-button');
+  const panel = container.querySelector('.ms-panel');
+  const searchInput = container.querySelector('.ms-search input');
+  const optionsDiv = container.querySelector('.ms-options');
+  const actionsDiv = container.querySelector('.ms-actions');
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willOpen = !ui.open;
+    closeAllMsPanels();
+    ui.open = willOpen;
+    msInstances.forEach(inst => renderMultiSelect(inst.id, inst));
+    syncElevatedCard();
+  });
+  panel.addEventListener('click', (e) => e.stopPropagation());
+
+  function wireOptionCheckboxes() {
+    optionsDiv.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => toggleMsValue(store, key, cb.value));
+    });
+  }
+  wireOptionCheckboxes();
+
+  // Typing in the search box only rebuilds the option list (not the whole
+  // widget), so the input never loses focus mid-keystroke.
+  searchInput.addEventListener('input', (e) => {
+    ui.search = e.target.value;
+    optionsDiv.innerHTML = msOptionsHtml(store, options, ui.search, key);
+    wireOptionCheckboxes();
+  });
+
+  actionsDiv.querySelector('[data-act="all"]').addEventListener('click', () => {
+    store[key] = options.slice();
+    render();
+  });
+  actionsDiv.querySelector('[data-act="clear"]').addEventListener('click', () => {
+    store[key] = [];
+    render();
+  });
+}
+
+document.addEventListener('click', () => {
+  if (Object.values(msUI).some(ui => ui.open)) {
+    closeAllMsPanels();
+    msInstances.forEach(inst => renderMultiSelect(inst.id, inst));
+    syncElevatedCard();
+  }
+});
+
+function render() {
+  const platformOptions = uniqueSorted(applyFilters(allProducts, { skipPlatform: true }).map(p => p.platform));
+  const brandOptions = uniqueSorted(applyFilters(allProducts, { skipBrand: true }).map(p => p.brand));
+  const productOptions = uniqueSorted(applyFilters(allProducts, { skipProduct: true }).map(p => p.model_name));
+
+  // Drop any previously-selected values that no longer exist among the
+  // available options (e.g. after the underlying dataset changes).
+  state.platform = state.platform.filter(v => platformOptions.includes(v));
+  state.brand = state.brand.filter(v => brandOptions.includes(v));
+  state.product = state.product.filter(v => productOptions.includes(v));
+
+  // The trend-chart quick filter is intentionally independent of `state` (see
+  // trendState declaration above), so its own option lists are the full,
+  // unfiltered catalog rather than anything cross-narrowed by other filters.
+  const allBrandOptions = uniqueSorted(allProducts.map(p => p.brand));
+  const allProductOptions = uniqueSorted(allProducts.map(p => p.model_name));
+  trendState.brand = trendState.brand.filter(v => allBrandOptions.includes(v));
+  trendState.product = trendState.product.filter(v => allProductOptions.includes(v));
+
+  // Xiaomi compare chart's quick filter: only Xiaomi model names, independent
+  // of every other filter store on the page.
+  const xiaomiModelOptions = uniqueSorted(allProducts.filter(p => p.brand === 'Xiaomi').map(p => p.model_name));
+  xiaomiCompareState.product = xiaomiCompareState.product.filter(v => xiaomiModelOptions.includes(v));
+
+  msInstances = [
+    { id: 'ms-platform', store: state, key: 'platform', options: platformOptions, allLabel: 'All Platforms' },
+    { id: 'ms-brand', store: state, key: 'brand', options: brandOptions, allLabel: 'All Brands' },
+    { id: 'ms-product', store: state, key: 'product', options: productOptions, allLabel: 'All Products' },
+    { id: 'ms-brand-quick', store: trendState, key: 'brand', options: allBrandOptions, allLabel: 'All Brands' },
+    { id: 'ms-product-quick', store: trendState, key: 'product', options: allProductOptions, allLabel: 'All Products' },
+    { id: 'ms-xiaomi-compare-product', store: xiaomiCompareState, key: 'product', options: xiaomiModelOptions, allLabel: 'All Xiaomi Models' },
+  ];
+  msInstances.forEach(inst => renderMultiSelect(inst.id, inst));
+  syncElevatedCard();
+
+  const filtered = applyFilters(allProducts);
+
+  // KPI cards and brand cards summarize the core noon.com catalog (the
+  // "93 models" this dashboard is built around). Amazon.ae rows are an
+  // added comparison layer for the table below — folding them into these
+  // aggregates would double-count models that exist on both platforms and
+  // quietly inflate "Total Products" / skew the average price. These stay
+  // scoped to noon regardless of the Platform filter itself (so picking
+  // "Amazon" in that dropdown — to look at the table — doesn't zero out
+  // the KPI cards); brand/product filters still apply normally.
+  const noonFiltered = applyFilters(allProducts, { skipPlatform: true }).filter(p => p.platform === 'noon');
+  renderKPI(noonFiltered);
+  renderBrandCards(noonFiltered);
+  try { renderTrendChart(); } catch (e) { console.warn('Trend chart skipped:', e); }
+  try { renderXiaomiCompareChart(); } catch (e) { console.warn('Xiaomi compare chart skipped:', e); }
+  renderBenchmark();
+  renderTable(filtered);
+
+  const noonCatalogTotal = allProducts.filter(p => p.platform === 'noon').length;
+  document.getElementById('header-sub').textContent =
+    `Xiaomi / Samsung / Honor · Lowest price across all sellers · ${noonFiltered.length} / ${noonCatalogTotal} models matched`;
+}
+
+function renderKPI(filtered) {
+  const grid = document.getElementById('kpi-grid');
+  const brandsCovered = uniqueSorted(filtered.map(p => p.brand)).length;
+  const lowestOverall = filtered.length ? Math.min(...filtered.map(p => p.lowest_price)) : 0;
+  const avgOverall = filtered.length ? (filtered.reduce((s, p) => s + p.lowest_price, 0) / filtered.length) : 0;
+
+  grid.innerHTML = `
+    <div class="glow-card kpi-card total"><div class="kpi-inner">
+      <div class="kpi-label">Total Products</div>
+      <div class="kpi-value">${filtered.length}<span class="unit">models</span></div>
+      <div class="kpi-sub">Full sample: ${allProducts.filter(p => p.platform === 'noon').length} models (noon.com catalog)</div>
+    </div></div>
+    <div class="glow-card kpi-card brands"><div class="kpi-inner">
+      <div class="kpi-label">Brands Covered</div>
+      <div class="kpi-value">${brandsCovered}<span class="unit">brands</span></div>
+      <div class="kpi-sub">Xiaomi · Samsung · Honor</div>
+    </div></div>
+    <div class="glow-card kpi-card lowest"><div class="kpi-inner">
+      <div class="kpi-label">Lowest Price (Filtered)</div>
+      <div class="kpi-value">${lowestOverall.toFixed(0)}<span class="unit">AED</span></div>
+      <div class="kpi-sub">Best offer across all sellers</div>
+    </div></div>
+    <div class="glow-card kpi-card avg"><div class="kpi-inner">
+      <div class="kpi-label">Average Price (Filtered)</div>
+      <div class="kpi-value">${avgOverall.toFixed(0)}<span class="unit">AED</span></div>
+      <div class="kpi-sub">Mean of sampled models</div>
+    </div></div>
+  `;
+}
+
+function renderBrandCards(filtered) {
+  const grid = document.getElementById('summary-grid');
+  const brands = uniqueSorted(filtered.map(p => p.brand));
+
+  if (!brands.length) {
+    grid.innerHTML = `<div class="glow-card brand-card"><div class="sub">No products match the current filters</div></div>`;
+    return;
+  }
+
+  grid.innerHTML = '';
+  brands.forEach(b => {
+    const items = filtered.filter(p => p.brand === b);
+    const prices = items.map(p => p.lowest_price);
+    const cheapest = items.reduce((min, p) => p.lowest_price < min.lowest_price ? p : min, items[0]);
+    const minPrice = Math.min(...prices);
+    const avgPrice = prices.reduce((s, v) => s + v, 0) / prices.length;
+
+    const isActive = state.brand.length === 1 && state.brand[0] === b;
+    const el = document.createElement('div');
+    el.className = 'glow-card brand-card ' + b + (isActive ? ' is-active' : '');
+    el.innerHTML = `
+      <h3>${brandLabel(b)}</h3>
+      <div class="price-row">${minPrice.toFixed(2)} <span style="font-size:12px;font-weight:400;color:var(--muted);">AED from</span></div>
+      <div class="sub">
+        ${items.length} models sampled · avg ${avgPrice.toFixed(2)} AED<br/>
+        Cheapest model: <a href="${cheapest.product_url}" target="_blank" onclick="event.stopPropagation()">${cheapest.model_name}</a><br/>
+        Seller: ${cheapest.lowest_seller}
+      </div>
+      <div class="hint">Click to filter by this brand</div>
+    `;
+    el.addEventListener('click', () => {
+      state.brand = isActive ? [] : [b];
+      render();
+    });
+    grid.appendChild(el);
+  });
+}
+
+// ---------- Real price history (no simulated/demo data) ----------
+// Each entry is [{date: 'YYYY-MM-DD', price: number}, ...], one point per day
+// this SKU has actually been re-scraped. On the very first day there's only
+// one real point — we show it honestly instead of faking a 7-day line.
+async function getRealTrend(sku) {
+  if (trendCache[sku]) return trendCache[sku];
+  let series = null;
+  try {
+    const res = await fetch(`${API_BASE}/api/trend?sku=${encodeURIComponent(sku)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.series && data.series.length) series = data.series;
+    }
+  } catch (e) { /* no backend reachable (e.g. standalone file) — fall back below */ }
+  if (!series) {
+    const hist = EMBEDDED_HISTORY[sku];
+    if (hist) series = Object.keys(hist).sort().map(d => ({ date: d, price: hist[d] }));
+  }
+  trendCache[sku] = series || [];
+  return trendCache[sku];
+}
+
+// Dependency-free SVG line chart — no external library, so it always renders
+// regardless of network access (Chart.js from a CDN used to fail on networks
+// that block cdnjs).
+// Deliberately driven by `trendState` (its own quick filter), NOT the main
+// `state` — selections in the main filter bar / brand cards / table must not
+// change what's plotted here, and vice versa.
+async function renderTrendChart() {
+  const wrap = document.getElementById('trendChartWrap');
+  const note = document.getElementById('trend-note');
+  const badge = document.getElementById('trend-days-badge');
+
+  let lines = [];
+  if (trendState.product.length) {
+    // Multi-select: one line per selected model (capped so the chart stays readable).
+    lines = trendState.product
+      .map(name => allProducts.find(pr => pr.model_name === name))
+      .filter(Boolean)
+      .slice(0, 5);
+    if (note) {
+      note.textContent = trendState.product.length === 1
+        ? `Showing selected model: ${trendState.product[0]}`
+        : `Showing ${lines.length} selected models${trendState.product.length > 5 ? ' (first 5 of ' + trendState.product.length + ')' : ''}`;
+    }
+  } else {
+    const trendBrand = trendState.brand.length ? trendState.brand[0] : 'Xiaomi';
+    // Amazon rows have no rating/review data and no recorded price history,
+    // so they're excluded from the "top-selling models" trend fallback —
+    // only relevant when the user hasn't picked a specific model already.
+    const pool = allProducts.filter(p => p.brand === trendBrand && p.platform === 'noon');
+    lines = pool.slice().sort((a, b) => (b.ratings_count||0) - (a.ratings_count||0)).slice(0, 3);
+    if (note) {
+      note.textContent = trendState.brand.length > 1
+        ? `Showing top-selling ${brandLabel(trendBrand)} models (first of ${trendState.brand.length} selected brands, by review volume)`
+        : `Showing top-selling ${brandLabel(trendBrand)} models (by review volume)`;
+    }
+  }
+
+  if (!wrap) return;
+  if (!lines.length) {
+    if (badge) badge.style.display = 'none';
+    wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:13px;">No data for the current filter</div>';
+    return;
+  }
+
+  const seriesList = await Promise.all(lines.map(p => getRealTrend(p.sku)));
+  const allDates = Array.from(new Set(seriesList.flatMap(s => s.map(pt => pt.date)))).sort();
+  const daysRecorded = allDates.length;
+
+  if (badge) {
+    badge.style.display = 'inline-block';
+    badge.textContent = daysRecorded <= 1 ? 'real data · 1 day recorded' : `real data · ${daysRecorded} days recorded`;
+  }
+
+  if (daysRecorded === 0) {
+    wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:13px;">No price history recorded for this selection yet</div>';
+    return;
+  }
+
+  if (daysRecorded === 1) {
+    // Only one real snapshot exists — showing a "trend line" would mean faking
+    // the other points, so we show today's real price(s) instead and explain why.
+    const colorCycle = ['#7c5cff', '#22d3ee', '#ff2e88', '#ffb020', '#33e2a0'];
+    wrap.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;">
+        <div style="color:var(--muted);font-size:12.5px;max-width:640px;text-align:center;line-height:1.6;">
+          Only one real price snapshot has been recorded so far (${allDates[0]}). A trend line needs at least two days of
+          real data — ask me to re-scrape on a later day and this will turn into a real multi-point chart automatically.
+        </div>
+        <div style="display:flex;gap:28px;flex-wrap:wrap;justify-content:center;">
+          ${lines.map((p, li) => {
+            const pt = seriesList[li][seriesList[li].length - 1];
+            const price = pt ? pt.price : p.lowest_price;
+            return `<div style="text-align:center;">
+              <div style="width:10px;height:10px;border-radius:2px;background:${colorCycle[li % colorCycle.length]};margin:0 auto 8px;"></div>
+              <div style="font-size:22px;font-weight:700;color:#fff;">${price.toFixed(2)} AED</div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${p.model_name} (${brandLabel(p.brand)})</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    return;
+  }
+
+  // daysRecorded >= 2: real multi-point chart using actual recorded dates as labels.
+  const colorCycle = ['#7c5cff', '#22d3ee', '#ff2e88', '#ffb020', '#33e2a0'];
+  const labels = allDates;
+  const perSeries = seriesList.map(s => {
+    const byDate = Object.fromEntries(s.map(pt => [pt.date, pt.price]));
+    return labels.map(d => (d in byDate ? byDate[d] : null));
+  });
+  const allValues = perSeries.flat().filter(v => v !== null);
+  const rawMin = Math.min(...allValues), rawMax = Math.max(...allValues);
+  const pad = (rawMax - rawMin) * 0.12 || rawMax * 0.05 || 1;
+  const minV = rawMin - pad, maxV = rawMax + pad;
+
+  const width = 960, height = 300;
+  const m = { left: 56, right: 20, top: 16, bottom: 30 };
+  const plotW = width - m.left - m.right;
+  const plotH = height - m.top - m.bottom;
+  const xAt = i => m.left + (labels.length === 1 ? 0.5 : i / (labels.length - 1)) * plotW;
+  const yAt = v => m.top + plotH - ((v - minV) / (maxV - minV || 1)) * plotH;
+
+  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">`;
+
+  const gridLines = 4;
+  for (let g = 0; g <= gridLines; g++) {
+    const gy = m.top + (plotH / gridLines) * g;
+    const val = maxV - (maxV - minV) * (g / gridLines);
+    svg += `<line x1="${m.left}" x2="${width - m.right}" y1="${gy.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
+    svg += `<text x="${m.left - 8}" y="${(gy + 3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="#8b93b8">${val.toFixed(0)}</text>`;
+  }
+  labels.forEach((lab, i) => {
+    svg += `<text x="${xAt(i).toFixed(1)}" y="${height - 8}" text-anchor="middle" font-size="10" fill="#8b93b8">${lab.slice(5)}</text>`;
+  });
+
+  lines.forEach((p, li) => {
+    const series = perSeries[li];
+    const color = colorCycle[li % colorCycle.length];
+    const knownIdx = series.map((v, i) => v !== null ? i : null).filter(i => i !== null);
+    if (!knownIdx.length) return;
+    const points = knownIdx.map(i => `${xAt(i).toFixed(1)},${yAt(series[i]).toFixed(1)}`).join(' ');
+    const areaPoints = `${xAt(knownIdx[0]).toFixed(1)},${(m.top + plotH).toFixed(1)} ${points} ${xAt(knownIdx[knownIdx.length-1]).toFixed(1)},${(m.top + plotH).toFixed(1)}`;
+    svg += `<polygon points="${areaPoints}" fill="${color}22" stroke="none"/>`;
+    svg += `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    knownIdx.forEach(i => {
+      svg += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(series[i]).toFixed(1)}" r="3.5" fill="${color}"/>`;
+    });
+  });
+  svg += `</svg>`;
+
+  const legend = `<div style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-top:6px;">` +
+    lines.map((p, li) => `<span style="font-size:12px;color:#c7cce6;display:inline-flex;align-items:center;gap:6px;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorCycle[li % colorCycle.length]};"></span>
+        ${p.model_name} (${brandLabel(p.brand)})
+      </span>`).join('') +
+    `</div>`;
+
+  wrap.innerHTML = `<div style="height:${height - 34}px;">${svg}</div>${legend}`;
+}
+
+// ---------- Xiaomi noon.com vs Amazon.ae price-gap bar chart ----------
+// Same brand + model_name + RAM/ROM config, present on BOTH platforms, with a
+// DIFFERENT lowest_price = a "mismatch" worth surfacing. Identical prices on
+// both platforms are intentionally excluded — nothing useful to compare there.
+function computeXiaomiMismatches() {
+  const xiaomi = allProducts.filter(p => p.brand === 'Xiaomi');
+  const byKey = new Map();
+  xiaomi.forEach(p => {
+    const key = `${p.model_name}__${p.config.ram_gb}__${p.config.rom_gb}`;
+    if (!byKey.has(key)) byKey.set(key, {});
+    // If duplicates exist for the same platform, keep the cheaper one (should
+    // already be deduped by dedupeByModelAndConfig, but stay defensive here).
+    const bucket = byKey.get(key);
+    if (!bucket[p.platform] || p.lowest_price < bucket[p.platform].lowest_price) {
+      bucket[p.platform] = p;
+    }
+  });
+
+  const mismatches = [];
+  byKey.forEach(entry => {
+    if (entry.noon && entry.amazon && entry.noon.lowest_price !== entry.amazon.lowest_price) {
+      mismatches.push({
+        model_name: entry.noon.model_name,
+        config: entry.noon.config,
+        noonPrice: entry.noon.lowest_price,
+        amazonPrice: entry.amazon.lowest_price,
+        diff: Math.abs(entry.noon.lowest_price - entry.amazon.lowest_price),
+      });
+    }
+  });
+  return mismatches;
+}
+
+// Dependency-free div/CSS bar chart (row count varies with the filter, so a
+// scrollable container is used instead of a fixed-viewBox SVG). Deliberately
+// driven by `xiaomiCompareState` (its own quick filter), independent of every
+// other filter store on the page — see the trend chart's equivalent comment.
+function renderXiaomiCompareChart() {
+  const wrap = document.getElementById('xiaomiCompareChartWrap');
+  const note = document.getElementById('xiaomi-compare-note');
+  if (!wrap) return;
+
+  const all = computeXiaomiMismatches();
+  let rows;
+  if (xiaomiCompareState.product.length) {
+    rows = all.filter(r => xiaomiCompareState.product.includes(r.model_name));
+    if (note) {
+      note.textContent = xiaomiCompareState.product.length === 1
+        ? `${rows.length} mismatched config(s) for ${xiaomiCompareState.product[0]}`
+        : `${rows.length} mismatched config(s) across ${xiaomiCompareState.product.length} selected models`;
+    }
+  } else {
+    rows = all.slice().sort((a, b) => b.diff - a.diff).slice(0, 5);
+    if (note) {
+      note.textContent = `Showing top ${rows.length} of ${all.length} mismatched configs by price gap — use the filter to see a specific model`;
+    }
+  }
+
+  if (!rows.length) {
+    wrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:220px;color:var(--muted);font-size:13px;text-align:center;padding:0 20px;">
+      ${xiaomiCompareState.product.length ? 'No noon.com/Amazon.ae price mismatch for the selected model(s) — prices match, or one platform has no matching config.' : 'No price mismatches found — every matched Xiaomi config is priced the same on both platforms.'}
+    </div>`;
+    return;
+  }
+
+  const maxPrice = Math.max(...rows.flatMap(r => [r.noonPrice, r.amazonPrice]));
+
+  wrap.innerHTML = rows.map(r => {
+    const noonPct = Math.max(2, (r.noonPrice / maxPrice) * 100).toFixed(1);
+    const amzPct = Math.max(2, (r.amazonPrice / maxPrice) * 100).toFixed(1);
+    const cheaperOnAmazon = r.amazonPrice < r.noonPrice;
+    const diffColor = cheaperOnAmazon ? 'var(--down)' : 'var(--up)';
+    const diffLabel = cheaperOnAmazon ? 'Amazon.ae cheaper' : 'noon.com cheaper';
+    return `
+      <div class="xcompare-row">
+        <div class="xcompare-label">
+          <span class="product-name">${r.model_name}</span>
+          <span class="config-pill">${configLabel(r.config)}</span>
+          <span style="color:${diffColor};font-size:11px;">Δ ${r.diff.toFixed(2)} AED · ${diffLabel}</span>
+        </div>
+        <div class="xcompare-bar-line">
+          <span class="xcompare-bar-tag" style="color:#7fe6f7;">noon</span>
+          <div class="xcompare-bar-track"><div class="xcompare-bar-fill noon" style="width:${noonPct}%"></div></div>
+          <span class="xcompare-price">${r.noonPrice.toFixed(2)} AED</span>
+        </div>
+        <div class="xcompare-bar-line">
+          <span class="xcompare-bar-tag" style="color:#ffb03d;">amazon</span>
+          <div class="xcompare-bar-track"><div class="xcompare-bar-fill amazon" style="width:${amzPct}%"></div></div>
+          <span class="xcompare-price">${r.amazonPrice.toFixed(2)} AED</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ---------- Price Comparison (curated mapping, not auto nearest-match) ----------
+// Which models get compared against each other is fixed by a hand-curated
+// mapping table (product manager supplied), not computed by "nearest price".
+function renderBenchmark() {
+  const tbody = document.getElementById('benchmark-body');
+  if (!tbody) return;
+
+  function diffCell(diff) {
+    const cls = diff >= 0 ? 'bm-diff-up' : 'bm-diff-down';
+    const sign = diff >= 0 ? '+' : '';
+    return `<span class="${cls}">${sign}${diff.toFixed(2)} AED</span>`;
+  }
+  function cell(entry) {
+    if (!entry) return { name: '—', cfg: '', price: '—', note: '' };
+    const url = `https://www.noon.com/uae-en/-/${entry.sku}/p/`;
+    return {
+      name: `<a href="${url}" target="_blank" style="color:#9db4ff;text-decoration:none;">${entry.model_name}</a>`,
+      cfg: entry.config,
+      price: entry.price.toFixed(2) + ' AED',
+      note: entry.note ? `<div class="bm-model" style="color:var(--up);margin-top:2px;" title="${entry.note}">⚠ ${entry.note}</div>` : '',
+    };
+  }
+
+  tbody.innerHTML = COMPARISON_MAPPING.map(row => {
+    const x = cell(row.xiaomi);
+    const s = cell(row.samsung);
+    const h = cell(row.honor);
+    const sDiff = (row.samsung && row.xiaomi) ? row.samsung.price - row.xiaomi.price : null;
+    const hDiff = (row.honor && row.xiaomi) ? row.honor.price - row.xiaomi.price : null;
+    return `
+      <tr>
+        <td class="product-name">${x.name}<div class="bm-model">${x.cfg}</div>${x.note}</td>
+        <td class="bm-price">${x.price}</td>
+        <td class="product-name">${s.name}<div class="bm-model">${s.cfg}</div>${s.note}</td>
+        <td class="bm-price">${s.price}</td>
+        <td>${sDiff !== null ? diffCell(sDiff) : '—'}</td>
+        <td class="product-name">${h.name}<div class="bm-model">${h.cfg}</div>${h.note}</td>
+        <td class="bm-price">${h.price}</td>
+        <td>${hDiff !== null ? diffCell(hDiff) : '—'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderTable(filtered) {
+  let rows = filtered.slice().sort((a, b) => {
+    if (sortKey === 'model_config') {
+      // Compound sort: brand -> product name -> RAM -> ROM -> platform.
+      // Each comparison step only breaks the tie left by the previous one,
+      // so same-model rows end up grouped and ordered by increasing
+      // capacity, with same-config rows from different platforms adjacent.
+      const dir = sortDir === 'asc' ? 1 : -1;
+      let c = a.brand.localeCompare(b.brand); if (c) return c * dir;
+      c = a.model_name.localeCompare(b.model_name); if (c) return c * dir;
+      c = a.config.ram_gb - b.config.ram_gb; if (c) return c * dir;
+      c = a.config.rom_gb - b.config.rom_gb; if (c) return c * dir;
+      return a.platform.localeCompare(b.platform) * dir;
+    }
+    let av, bv;
+    if (sortKey === 'ram_gb') { av = a.config.ram_gb; bv = b.config.ram_gb; }
+    else { av = a[sortKey]; bv = b[sortKey]; }
+    if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  document.getElementById('result-count').textContent = `${rows.length} results`;
+
+  const tbody = document.getElementById('table-body');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">No products match the current filters</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(p => `
+    <tr>
+      <td><span class="platform-pill ${p.platform}">${p.platform}</span></td>
+      <td><span class="badge ${p.brand}">${brandLabel(p.brand)}</span></td>
+      <td class="product-name">${p.model_name}</td>
+      <td><span class="config-pill">${configLabel(p.config)}</span></td>
+      <td>
+        <div class="price-main">${p.lowest_price.toFixed(2)} AED</div>
+        ${p.old_price ? `<span class="price-old">${p.old_price.toFixed(2)}</span>` : ''}
+        ${p.offers_count > 1 ? `<div class="config-line">${p.offers_count} sellers, lowest shown</div>` : ''}
+      </td>
+      <td class="seller">${p.lowest_seller}</td>
+      <td class="config-line">${p.sku}</td>
+      <td><a class="link" href="${p.product_url}" target="_blank">Visit ↗</a></td>
+    </tr>
+  `).join('');
+}
+
+function wireFilterEvents() {
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    state.platform = []; state.brand = []; state.product = [];
+    render();
+  });
+  document.querySelectorAll('thead th[data-key]').forEach(th => {
+    th.addEventListener('click', () => {
+      // Clicking "Product Name" re-enters the grouped brand->product->config
+      // view (see sortKey === 'model_config' in renderTable) rather than a
+      // flat alphabetical sort, since that's the useful behavior for this
+      // column — every other column still does a plain single-key sort.
+      const key = th.dataset.key === 'model_name' ? 'model_config' : th.dataset.key;
+      if (sortKey === key) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+      else { sortKey = key; sortDir = 'asc'; }
+      renderTable(applyFilters(allProducts));
+    });
+  });
+}
+
+boot();
+</script>
+
+</body>
+</html>
