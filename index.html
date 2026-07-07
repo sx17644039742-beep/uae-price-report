@@ -317,6 +317,7 @@
       <div class="quick-filter-row">
         <div class="ms-wrap" id="ms-brand-quick"></div>
         <div class="ms-wrap" id="ms-product-quick"></div>
+        <div class="ms-wrap" id="ms-config-quick"></div>
         <span class="panel-note quick-filter-hint">Only changes this chart — doesn't affect the KPIs, brand cards, or table below</span>
       </div>
       <div class="chart-wrap wide" id="trendChartWrap" style="height:260px;"></div>
@@ -419,7 +420,7 @@ const state = { platform: [], brand: [], product: [] };
 // chart. Deliberately a SEPARATE object from `state` — selecting brands/
 // models here only changes which lines are plotted on the trend chart and
 // must not affect the KPI cards, brand cards, or the table below.
-const trendState = { brand: [], product: [] };
+const trendState = { brand: [], product: [], config: [] };
 // Independent filter state for the Xiaomi noon-vs-amazon price-gap bar chart.
 // Its own store too — selecting models here must not touch `state` or
 // `trendState`, matching the trend chart's quick filter pattern.
@@ -471,6 +472,22 @@ function applyFilters(products, { skipPlatform = false, skipBrand = false, skipP
     if (!skipPlatform && state.platform.length && !state.platform.includes(p.platform)) return false;
     if (!skipBrand && state.brand.length && !state.brand.includes(p.brand)) return false;
     if (!skipProduct && state.product.length && !state.product.includes(p.model_name)) return false;
+    return true;
+  });
+}
+
+// Same cross-narrowing idea as applyFilters() above, but scoped to the Price
+// Trend chart's own independent `trendState` (brand / product / config).
+// Picking a brand here narrows which products show up in the Model dropdown,
+// and picking a Model narrows the Config dropdown, and so on — each skip*
+// flag lets an option-list computation ignore its OWN dimension while still
+// respecting the other two, which is what makes the three dropdowns cascade
+// instead of always listing the full unfiltered catalog.
+function applyTrendFilters(products, { skipBrand = false, skipProduct = false, skipConfig = false } = {}) {
+  return products.filter(p => {
+    if (!skipBrand && trendState.brand.length && !trendState.brand.includes(p.brand)) return false;
+    if (!skipProduct && trendState.product.length && !trendState.product.includes(p.model_name)) return false;
+    if (!skipConfig && trendState.config.length && !trendState.config.includes(configLabel(p.config))) return false;
     return true;
   });
 }
@@ -614,13 +631,18 @@ function render() {
   state.brand = state.brand.filter(v => brandOptions.includes(v));
   state.product = state.product.filter(v => productOptions.includes(v));
 
-  // The trend-chart quick filter is intentionally independent of `state` (see
-  // trendState declaration above), so its own option lists are the full,
-  // unfiltered catalog rather than anything cross-narrowed by other filters.
-  const allBrandOptions = uniqueSorted(allProducts.map(p => p.brand));
-  const allProductOptions = uniqueSorted(allProducts.map(p => p.model_name));
-  trendState.brand = trendState.brand.filter(v => allBrandOptions.includes(v));
-  trendState.product = trendState.product.filter(v => allProductOptions.includes(v));
+  // The trend-chart quick filter is intentionally independent of `state`
+  // (see trendState declaration above) — it must not affect the KPI cards,
+  // brand cards, or the table below. But the three dropdowns WITHIN the
+  // quick-filter row do cross-narrow each other (skip* flags), so picking a
+  // brand here narrows the Model list to that brand's products, and picking
+  // a Model narrows Config to that model's actual configs, etc.
+  const trendBrandOptions = uniqueSorted(applyTrendFilters(allProducts, { skipBrand: true }).map(p => p.brand));
+  const trendProductOptions = uniqueSorted(applyTrendFilters(allProducts, { skipProduct: true }).map(p => p.model_name));
+  const trendConfigOptions = uniqueSorted(applyTrendFilters(allProducts, { skipConfig: true }).map(p => configLabel(p.config)));
+  trendState.brand = trendState.brand.filter(v => trendBrandOptions.includes(v));
+  trendState.product = trendState.product.filter(v => trendProductOptions.includes(v));
+  trendState.config = trendState.config.filter(v => trendConfigOptions.includes(v));
 
   // Xiaomi compare chart's quick filter: only Xiaomi model names, independent
   // of every other filter store on the page.
@@ -631,8 +653,9 @@ function render() {
     { id: 'ms-platform', store: state, key: 'platform', options: platformOptions, allLabel: 'All Platforms' },
     { id: 'ms-brand', store: state, key: 'brand', options: brandOptions, allLabel: 'All Brands' },
     { id: 'ms-product', store: state, key: 'product', options: productOptions, allLabel: 'All Products' },
-    { id: 'ms-brand-quick', store: trendState, key: 'brand', options: allBrandOptions, allLabel: 'All Brands' },
-    { id: 'ms-product-quick', store: trendState, key: 'product', options: allProductOptions, allLabel: 'All Products' },
+    { id: 'ms-brand-quick', store: trendState, key: 'brand', options: trendBrandOptions, allLabel: 'All Brands' },
+    { id: 'ms-product-quick', store: trendState, key: 'product', options: trendProductOptions, allLabel: 'All Products' },
+    { id: 'ms-config-quick', store: trendState, key: 'config', options: trendConfigOptions, allLabel: 'All Configs' },
     { id: 'ms-xiaomi-compare-product', store: xiaomiCompareState, key: 'product', options: xiaomiModelOptions, allLabel: 'All Xiaomi Models' },
   ];
   msInstances.forEach(inst => renderMultiSelect(inst.id, inst));
@@ -762,24 +785,28 @@ async function renderTrendChart() {
   const note = document.getElementById('trend-note');
   const badge = document.getElementById('trend-days-badge');
 
+  // Amazon rows have no rating/review data and no recorded price history, so
+  // they're excluded from every branch below (both the explicit-selection
+  // and top-selling-by-review fallback paths).
+  const noonProducts = allProducts.filter(p => p.platform === 'noon');
+
   let lines = [];
-  if (trendState.product.length) {
-    // Multi-select: one line per selected model (capped so the chart stays readable).
-    lines = trendState.product
-      .map(name => allProducts.find(pr => pr.model_name === name))
-      .filter(Boolean)
-      .slice(0, 5);
+  if (trendState.product.length || trendState.config.length) {
+    // Model and/or Config picked explicitly in the quick-filter row — show
+    // every real product+config combination that matches ALL three selected
+    // dimensions (brand + product + config apply together here). This is
+    // also what fixes "two lines both labeled the same model name" — each
+    // distinct config is now its own explicit, matched line rather than an
+    // accidental side effect of the top-3-by-review fallback below.
+    lines = applyTrendFilters(noonProducts).slice(0, 5);
     if (note) {
-      note.textContent = trendState.product.length === 1
-        ? `Showing selected model: ${trendState.product[0]}`
-        : `Showing ${lines.length} selected models${trendState.product.length > 5 ? ' (first 5 of ' + trendState.product.length + ')' : ''}`;
+      note.textContent = lines.length === 1
+        ? `Showing selected model: ${lines[0].model_name} (${configLabel(lines[0].config)})`
+        : `Showing ${lines.length} matching model+config combination${lines.length === 1 ? '' : 's'}${lines.length >= 5 ? ' (capped at 5)' : ''}`;
     }
   } else {
     const trendBrand = trendState.brand.length ? trendState.brand[0] : 'Xiaomi';
-    // Amazon rows have no rating/review data and no recorded price history,
-    // so they're excluded from the "top-selling models" trend fallback —
-    // only relevant when the user hasn't picked a specific model already.
-    const pool = allProducts.filter(p => p.brand === trendBrand && p.platform === 'noon');
+    const pool = noonProducts.filter(p => p.brand === trendBrand);
     lines = pool.slice().sort((a, b) => (b.ratings_count||0) - (a.ratings_count||0)).slice(0, 3);
     if (note) {
       note.textContent = trendState.brand.length > 1
@@ -826,7 +853,7 @@ async function renderTrendChart() {
             return `<div style="text-align:center;">
               <div style="width:10px;height:10px;border-radius:2px;background:${colorCycle[li % colorCycle.length]};margin:0 auto 8px;"></div>
               <div style="font-size:22px;font-weight:700;color:#fff;">${price.toFixed(2)} AED</div>
-              <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${p.model_name} (${brandLabel(p.brand)})</div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${p.model_name} · ${configLabel(p.config)} (${brandLabel(p.brand)})</div>
             </div>`;
           }).join('')}
         </div>
@@ -847,7 +874,7 @@ async function renderTrendChart() {
   const minV = rawMin - pad, maxV = rawMax + pad;
 
   const width = 960, height = 300;
-  const m = { left: 56, right: 20, top: 16, bottom: 30 };
+  const m = { left: 56, right: 30, top: 16, bottom: 30 };
   const plotW = width - m.left - m.right;
   const plotH = height - m.top - m.bottom;
   const xAt = i => m.left + (labels.length === 1 ? 0.5 : i / (labels.length - 1)) * plotW;
@@ -862,8 +889,14 @@ async function renderTrendChart() {
     svg += `<line x1="${m.left}" x2="${width - m.right}" y1="${gy.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
     svg += `<text x="${m.left - 8}" y="${(gy + 3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="#8b93b8">${val.toFixed(0)}</text>`;
   }
+  // The first/last date labels are anchored to the INSIDE edge (start/end)
+  // rather than centered on their point — centering the leftmost/rightmost
+  // label on its own x-position pushes half its text past the plot area and
+  // it gets clipped by the card's rounded corners. Middle labels stay
+  // centered since they have room on both sides.
   labels.forEach((lab, i) => {
-    svg += `<text x="${xAt(i).toFixed(1)}" y="${height - 8}" text-anchor="middle" font-size="10" fill="#8b93b8">${lab.slice(5)}</text>`;
+    const anchor = i === 0 ? 'start' : (i === labels.length - 1 ? 'end' : 'middle');
+    svg += `<text x="${xAt(i).toFixed(1)}" y="${height - 8}" text-anchor="${anchor}" font-size="10" fill="#8b93b8">${lab.slice(5)}</text>`;
   });
 
   lines.forEach((p, li) => {
@@ -884,7 +917,7 @@ async function renderTrendChart() {
   const legend = `<div style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-top:6px;">` +
     lines.map((p, li) => `<span style="font-size:12px;color:#c7cce6;display:inline-flex;align-items:center;gap:6px;">
         <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorCycle[li % colorCycle.length]};"></span>
-        ${p.model_name} (${brandLabel(p.brand)})
+        ${p.model_name} · ${configLabel(p.config)} (${brandLabel(p.brand)})
       </span>`).join('') +
     `</div>`;
 
