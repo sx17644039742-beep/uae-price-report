@@ -138,14 +138,28 @@
   .chart-wrap { max-width: 780px; margin: 0 auto; height: 300px; }
   .chart-wrap.wide { max-width: 100%; }
 
-  /* Trend chart (left) + Xiaomi cross-platform bar chart (right) side by side */
-  .split-row { display: flex; gap: 20px; align-items: stretch; margin-bottom: 22px; flex-wrap: wrap; }
-  .split-row .glow-card.panel { margin-bottom: 0; }
-  .trend-panel { flex: 1 1 380px; max-width: 46%; }
-  .compare-panel { flex: 1.3 1 460px; }
-  @media (max-width: 900px) {
-    .trend-panel, .compare-panel { max-width: 100%; flex-basis: 100%; }
+  /* Price Trend chart tooltip (hover on a data point shows model / date / price) */
+  .chart-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(16,19,31,0.97);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 11px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
+    box-shadow: 0 14px 34px -10px rgba(0,0,0,0.7);
+    z-index: 30;
+    display: none;
+    white-space: nowrap;
   }
+
+  /* Product-table container: fixed max height with its own scrollbar so the
+     page doesn't require endless scrolling to see the filter bar / footer —
+     the header row stays pinned (sticky) while the body scrolls underneath. */
+  .table-scroll { max-height: 600px; overflow-y: auto; }
+  .table-scroll thead th { position: sticky; top: 0; background: #10131f; z-index: 5; }
 
   /* Xiaomi cross-platform price-gap bar chart */
   .compare-chart-wrap { max-height: 360px; overflow-y: auto; padding-right: 6px; }
@@ -190,6 +204,13 @@
     font-weight: 600;
     box-shadow: 0 0 18px -4px rgba(124,58,237,0.7);
   }
+  .filter-bar .export-btn {
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--text); padding: 10px 20px; border-radius: 10px; font-size: 13px; cursor: pointer; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .filter-bar .export-btn:hover { border-color: var(--accent-2); color: #fff; }
   .filter-bar .result-count { font-size: 12px; color: var(--muted); align-self: center; }
 
   /* Multi-select dropdown with search */
@@ -308,31 +329,33 @@
 
   <div class="summary-grid" id="summary-grid"></div>
 
-  <div class="split-row">
-    <div class="glow-card panel trend-panel">
-      <div class="panel-head">
-        <h2>Price Trend <span id="trend-days-badge" class="badge-demo" style="display:none;"></span></h2>
-        <span class="panel-note" id="trend-note">Showing top-selling Xiaomi models</span>
-      </div>
-      <div class="quick-filter-row">
-        <div class="ms-wrap" id="ms-brand-quick"></div>
-        <div class="ms-wrap" id="ms-product-quick"></div>
-        <span class="panel-note quick-filter-hint">Only changes this chart — doesn't affect the KPIs, brand cards, or table below</span>
-      </div>
-      <div class="chart-wrap wide" id="trendChartWrap" style="height:260px;"></div>
+  <div class="glow-card panel">
+    <div class="panel-head">
+      <h2>Price Trend <span id="trend-days-badge" class="badge-demo" style="display:none;"></span></h2>
+      <span class="panel-note" id="trend-note">Showing top-selling Xiaomi models</span>
     </div>
+    <div class="quick-filter-row">
+      <div class="ms-wrap" id="ms-brand-quick"></div>
+      <div class="ms-wrap" id="ms-product-quick"></div>
+      <div class="ms-wrap" id="ms-config-quick"></div>
+      <span class="panel-note quick-filter-hint">Only changes this chart — doesn't affect the KPIs, brand cards, or table below</span>
+    </div>
+    <div class="chart-wrap wide" id="trendChartWrap" style="height:260px; position:relative;">
+      <div id="trendChartInner" style="height:100%;"></div>
+      <div class="chart-tooltip" id="trendTooltip"></div>
+    </div>
+  </div>
 
-    <div class="glow-card panel compare-panel">
-      <div class="panel-head">
-        <h2>Xiaomi: Noon vs Amazon Price Gaps</h2>
-        <span class="panel-note" id="xiaomi-compare-note">Same model + config, different platform price</span>
-      </div>
-      <div class="quick-filter-row">
-        <div class="ms-wrap" id="ms-xiaomi-compare-product"></div>
-        <span class="panel-note quick-filter-hint">Only changes this chart — doesn't affect the KPIs, brand cards, or table below</span>
-      </div>
-      <div class="chart-wrap wide compare-chart-wrap" id="xiaomiCompareChartWrap"></div>
+  <div class="glow-card panel">
+    <div class="panel-head">
+      <h2>Xiaomi: Noon vs Amazon Price Gaps</h2>
+      <span class="panel-note" id="xiaomi-compare-note">Same model + config, different platform price</span>
     </div>
+    <div class="quick-filter-row">
+      <div class="ms-wrap" id="ms-xiaomi-compare-product"></div>
+      <span class="panel-note quick-filter-hint">Only changes this chart — doesn't affect the KPIs, brand cards, or table below</span>
+    </div>
+    <div class="chart-wrap wide compare-chart-wrap" id="xiaomiCompareChartWrap"></div>
   </div>
 
   <div class="glow-card panel">
@@ -370,26 +393,29 @@
       <div class="ms-wrap" id="ms-product"></div>
     </div>
     <button class="reset-btn" id="reset-btn">Reset Filters</button>
+    <button class="export-btn" id="export-btn" title="Export the currently filtered/sorted table below as a CSV file">⭳ Export CSV</button>
     <div class="spacer"></div>
     <span class="result-count" id="result-count"></span>
   </div>
 
   <div class="glow-card" style="overflow:hidden;">
-    <table>
-      <thead>
-        <tr>
-          <th data-key="platform">Platform</th>
-          <th data-key="brand">Brand</th>
-          <th data-key="model_name">Product Name</th>
-          <th data-key="ram_gb">Config</th>
-          <th data-key="lowest_price">Lowest Price</th>
-          <th data-key="lowest_seller">Seller</th>
-          <th data-key="sku">SKU</th>
-          <th>Details</th>
-        </tr>
-      </thead>
-      <tbody id="table-body"></tbody>
-    </table>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th data-key="platform">Platform</th>
+            <th data-key="brand">Brand</th>
+            <th data-key="model_name">Product Name</th>
+            <th data-key="ram_gb">Config</th>
+            <th data-key="lowest_price">Lowest Price</th>
+            <th data-key="lowest_seller">Seller</th>
+            <th data-key="sku">SKU</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
   </div>
 
   <footer id="footer-note"></footer>
@@ -410,6 +436,7 @@ let allProducts = [];
 let sortKey = 'model_config';
 let sortDir = 'asc';
 const trendCache = {};
+let lastTableRows = []; // the exact filtered+sorted rows currently shown in the table below, kept in sync by renderTable() — CSV export reads from here so it always matches what's on screen
 
 // Empty array = "no filter applied" (equivalent to the old 'all'). Non-empty
 // array = only show items whose value is included in it (multi-select).
@@ -419,7 +446,7 @@ const state = { platform: [], brand: [], product: [] };
 // chart. Deliberately a SEPARATE object from `state` — selecting brands/
 // models here only changes which lines are plotted on the trend chart and
 // must not affect the KPI cards, brand cards, or the table below.
-const trendState = { brand: [], product: [] };
+const trendState = { brand: [], product: [], config: [] };
 // Independent filter state for the Xiaomi noon-vs-amazon price-gap bar chart.
 // Its own store too — selecting models here must not touch `state` or
 // `trendState`, matching the trend chart's quick filter pattern.
@@ -471,6 +498,22 @@ function applyFilters(products, { skipPlatform = false, skipBrand = false, skipP
     if (!skipPlatform && state.platform.length && !state.platform.includes(p.platform)) return false;
     if (!skipBrand && state.brand.length && !state.brand.includes(p.brand)) return false;
     if (!skipProduct && state.product.length && !state.product.includes(p.model_name)) return false;
+    return true;
+  });
+}
+
+// Same cross-narrowing idea as applyFilters() above, but scoped to the Price
+// Trend chart's own independent `trendState` (brand / product / config).
+// Picking a brand here narrows which products show up in the Model dropdown,
+// and picking a Model narrows the Config dropdown, and so on — each skip*
+// flag lets an option-list computation ignore its OWN dimension while still
+// respecting the other two, which is what makes the three dropdowns cascade
+// instead of always listing the full unfiltered catalog.
+function applyTrendFilters(products, { skipBrand = false, skipProduct = false, skipConfig = false } = {}) {
+  return products.filter(p => {
+    if (!skipBrand && trendState.brand.length && !trendState.brand.includes(p.brand)) return false;
+    if (!skipProduct && trendState.product.length && !trendState.product.includes(p.model_name)) return false;
+    if (!skipConfig && trendState.config.length && !trendState.config.includes(configLabel(p.config))) return false;
     return true;
   });
 }
@@ -614,13 +657,18 @@ function render() {
   state.brand = state.brand.filter(v => brandOptions.includes(v));
   state.product = state.product.filter(v => productOptions.includes(v));
 
-  // The trend-chart quick filter is intentionally independent of `state` (see
-  // trendState declaration above), so its own option lists are the full,
-  // unfiltered catalog rather than anything cross-narrowed by other filters.
-  const allBrandOptions = uniqueSorted(allProducts.map(p => p.brand));
-  const allProductOptions = uniqueSorted(allProducts.map(p => p.model_name));
-  trendState.brand = trendState.brand.filter(v => allBrandOptions.includes(v));
-  trendState.product = trendState.product.filter(v => allProductOptions.includes(v));
+  // The trend-chart quick filter is intentionally independent of `state`
+  // (see trendState declaration above) — it must not affect the KPI cards,
+  // brand cards, or the table below. But the three dropdowns WITHIN the
+  // quick-filter row do cross-narrow each other (skip* flags), so picking a
+  // brand here narrows the Model list to that brand's products, and picking
+  // a Model narrows Config to that model's actual configs, etc.
+  const trendBrandOptions = uniqueSorted(applyTrendFilters(allProducts, { skipBrand: true }).map(p => p.brand));
+  const trendProductOptions = uniqueSorted(applyTrendFilters(allProducts, { skipProduct: true }).map(p => p.model_name));
+  const trendConfigOptions = uniqueSorted(applyTrendFilters(allProducts, { skipConfig: true }).map(p => configLabel(p.config)));
+  trendState.brand = trendState.brand.filter(v => trendBrandOptions.includes(v));
+  trendState.product = trendState.product.filter(v => trendProductOptions.includes(v));
+  trendState.config = trendState.config.filter(v => trendConfigOptions.includes(v));
 
   // Xiaomi compare chart's quick filter: only Xiaomi model names, independent
   // of every other filter store on the page.
@@ -631,8 +679,9 @@ function render() {
     { id: 'ms-platform', store: state, key: 'platform', options: platformOptions, allLabel: 'All Platforms' },
     { id: 'ms-brand', store: state, key: 'brand', options: brandOptions, allLabel: 'All Brands' },
     { id: 'ms-product', store: state, key: 'product', options: productOptions, allLabel: 'All Products' },
-    { id: 'ms-brand-quick', store: trendState, key: 'brand', options: allBrandOptions, allLabel: 'All Brands' },
-    { id: 'ms-product-quick', store: trendState, key: 'product', options: allProductOptions, allLabel: 'All Products' },
+    { id: 'ms-brand-quick', store: trendState, key: 'brand', options: trendBrandOptions, allLabel: 'All Brands' },
+    { id: 'ms-product-quick', store: trendState, key: 'product', options: trendProductOptions, allLabel: 'All Products' },
+    { id: 'ms-config-quick', store: trendState, key: 'config', options: trendConfigOptions, allLabel: 'All Configs' },
     { id: 'ms-xiaomi-compare-product', store: xiaomiCompareState, key: 'product', options: xiaomiModelOptions, allLabel: 'All Xiaomi Models' },
   ];
   msInstances.forEach(inst => renderMultiSelect(inst.id, inst));
@@ -758,28 +807,35 @@ async function getRealTrend(sku) {
 // `state` — selections in the main filter bar / brand cards / table must not
 // change what's plotted here, and vice versa.
 async function renderTrendChart() {
-  const wrap = document.getElementById('trendChartWrap');
+  const wrap = document.getElementById('trendChartInner');
+  const outerWrap = document.getElementById('trendChartWrap');
+  const tooltip = document.getElementById('trendTooltip');
   const note = document.getElementById('trend-note');
   const badge = document.getElementById('trend-days-badge');
+  if (tooltip) tooltip.style.display = 'none';
+
+  // Amazon rows have no rating/review data and no recorded price history, so
+  // they're excluded from every branch below (both the explicit-selection
+  // and top-selling-by-review fallback paths).
+  const noonProducts = allProducts.filter(p => p.platform === 'noon');
 
   let lines = [];
-  if (trendState.product.length) {
-    // Multi-select: one line per selected model (capped so the chart stays readable).
-    lines = trendState.product
-      .map(name => allProducts.find(pr => pr.model_name === name))
-      .filter(Boolean)
-      .slice(0, 5);
+  if (trendState.product.length || trendState.config.length) {
+    // Model and/or Config picked explicitly in the quick-filter row — show
+    // every real product+config combination that matches ALL three selected
+    // dimensions (brand + product + config apply together here). This is
+    // also what fixes "two lines both labeled the same model name" — each
+    // distinct config is now its own explicit, matched line rather than an
+    // accidental side effect of the top-3-by-review fallback below.
+    lines = applyTrendFilters(noonProducts).slice(0, 5);
     if (note) {
-      note.textContent = trendState.product.length === 1
-        ? `Showing selected model: ${trendState.product[0]}`
-        : `Showing ${lines.length} selected models${trendState.product.length > 5 ? ' (first 5 of ' + trendState.product.length + ')' : ''}`;
+      note.textContent = lines.length === 1
+        ? `Showing selected model: ${lines[0].model_name} (${configLabel(lines[0].config)})`
+        : `Showing ${lines.length} matching model+config combination${lines.length === 1 ? '' : 's'}${lines.length >= 5 ? ' (capped at 5)' : ''}`;
     }
   } else {
     const trendBrand = trendState.brand.length ? trendState.brand[0] : 'Xiaomi';
-    // Amazon rows have no rating/review data and no recorded price history,
-    // so they're excluded from the "top-selling models" trend fallback —
-    // only relevant when the user hasn't picked a specific model already.
-    const pool = allProducts.filter(p => p.brand === trendBrand && p.platform === 'noon');
+    const pool = noonProducts.filter(p => p.brand === trendBrand);
     lines = pool.slice().sort((a, b) => (b.ratings_count||0) - (a.ratings_count||0)).slice(0, 3);
     if (note) {
       note.textContent = trendState.brand.length > 1
@@ -826,7 +882,7 @@ async function renderTrendChart() {
             return `<div style="text-align:center;">
               <div style="width:10px;height:10px;border-radius:2px;background:${colorCycle[li % colorCycle.length]};margin:0 auto 8px;"></div>
               <div style="font-size:22px;font-weight:700;color:#fff;">${price.toFixed(2)} AED</div>
-              <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${p.model_name} (${brandLabel(p.brand)})</div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${p.model_name} · ${configLabel(p.config)} (${brandLabel(p.brand)})</div>
             </div>`;
           }).join('')}
         </div>
@@ -847,7 +903,7 @@ async function renderTrendChart() {
   const minV = rawMin - pad, maxV = rawMax + pad;
 
   const width = 960, height = 300;
-  const m = { left: 56, right: 20, top: 16, bottom: 30 };
+  const m = { left: 56, right: 30, top: 16, bottom: 30 };
   const plotW = width - m.left - m.right;
   const plotH = height - m.top - m.bottom;
   const xAt = i => m.left + (labels.length === 1 ? 0.5 : i / (labels.length - 1)) * plotW;
@@ -862,10 +918,23 @@ async function renderTrendChart() {
     svg += `<line x1="${m.left}" x2="${width - m.right}" y1="${gy.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
     svg += `<text x="${m.left - 8}" y="${(gy + 3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="#8b93b8">${val.toFixed(0)}</text>`;
   }
+  // The first/last date labels are anchored to the INSIDE edge (start/end)
+  // rather than centered on their point — centering the leftmost/rightmost
+  // label on its own x-position pushes half its text past the plot area and
+  // it gets clipped by the card's rounded corners. Middle labels stay
+  // centered since they have room on both sides.
   labels.forEach((lab, i) => {
-    svg += `<text x="${xAt(i).toFixed(1)}" y="${height - 8}" text-anchor="middle" font-size="10" fill="#8b93b8">${lab.slice(5)}</text>`;
+    const anchor = i === 0 ? 'start' : (i === labels.length - 1 ? 'end' : 'middle');
+    svg += `<text x="${xAt(i).toFixed(1)}" y="${height - 8}" text-anchor="${anchor}" font-size="10" fill="#8b93b8">${lab.slice(5)}</text>`;
   });
 
+  // Hit-area circles are collected separately and appended AFTER every
+  // line's polygon/polyline/dot, rather than inline per-line — SVG paints in
+  // document order, so an earlier line's hit circles would otherwise end up
+  // underneath a later line's filled area polygon and stop receiving hover
+  // events (later-in-markup = on top, regardless of z-index on these plain
+  // shapes).
+  let hitCircles = '';
   lines.forEach((p, li) => {
     const series = perSeries[li];
     const color = colorCycle[li % colorCycle.length];
@@ -875,20 +944,54 @@ async function renderTrendChart() {
     const areaPoints = `${xAt(knownIdx[0]).toFixed(1)},${(m.top + plotH).toFixed(1)} ${points} ${xAt(knownIdx[knownIdx.length-1]).toFixed(1)},${(m.top + plotH).toFixed(1)}`;
     svg += `<polygon points="${areaPoints}" fill="${color}22" stroke="none"/>`;
     svg += `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const lineLabel = `${p.model_name} · ${configLabel(p.config)} (${brandLabel(p.brand)})`;
     knownIdx.forEach(i => {
-      svg += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(series[i]).toFixed(1)}" r="3.5" fill="${color}"/>`;
+      const cx = xAt(i).toFixed(1), cy = yAt(series[i]).toFixed(1);
+      svg += `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${color}"/>`;
+      // Larger transparent hit-area on top of the visible dot, carrying the
+      // hover data — a bare r=3.5 dot is too small a mouse target on its own.
+      hitCircles += `<circle class="trend-point" data-label="${lineLabel}" data-date="${labels[i]}" data-price="${series[i].toFixed(2)}" cx="${cx}" cy="${cy}" r="9" fill="transparent" style="cursor:pointer;"/>`;
     });
   });
+  svg += hitCircles;
   svg += `</svg>`;
 
   const legend = `<div style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-top:6px;">` +
     lines.map((p, li) => `<span style="font-size:12px;color:#c7cce6;display:inline-flex;align-items:center;gap:6px;">
         <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${colorCycle[li % colorCycle.length]};"></span>
-        ${p.model_name} (${brandLabel(p.brand)})
+        ${p.model_name} · ${configLabel(p.config)} (${brandLabel(p.brand)})
       </span>`).join('') +
     `</div>`;
 
   wrap.innerHTML = `<div style="height:${height - 34}px;">${svg}</div>${legend}`;
+  attachTrendTooltip(wrap, outerWrap, tooltip);
+}
+
+// Hovering a data point shows a small floating card with that exact line's
+// model+config, the hovered date, and the recorded price for that day —
+// separate from the always-visible legend below the chart.
+function attachTrendTooltip(innerEl, outerEl, tooltip) {
+  if (!innerEl || !outerEl || !tooltip) return;
+  innerEl.querySelectorAll('.trend-point').forEach(pt => {
+    pt.addEventListener('mousemove', (e) => {
+      tooltip.innerHTML = `
+        <div style="font-weight:600;color:#fff;">${pt.dataset.label}</div>
+        <div style="color:var(--muted);margin-top:2px;">${pt.dataset.date}</div>
+        <div style="font-weight:700;color:#fff;margin-top:2px;">${pt.dataset.price} AED</div>
+      `;
+      tooltip.style.display = 'block';
+      const rect = outerEl.getBoundingClientRect();
+      let x = e.clientX - rect.left + 14;
+      let y = e.clientY - rect.top - 12;
+      // Keep the tooltip from spilling past the card's right/top edge.
+      const maxX = rect.width - 180;
+      if (x > maxX) x = e.clientX - rect.left - 14 - 170;
+      if (y < 4) y = 4;
+      tooltip.style.left = `${x}px`;
+      tooltip.style.top = `${y}px`;
+    });
+    pt.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  });
 }
 
 // ---------- Xiaomi noon.com vs Amazon.ae price-gap bar chart ----------
@@ -1053,6 +1156,7 @@ function renderTable(filtered) {
     return 0;
   });
 
+  lastTableRows = rows;
   document.getElementById('result-count').textContent = `${rows.length} results`;
 
   const tbody = document.getElementById('table-body');
@@ -1079,11 +1183,48 @@ function renderTable(filtered) {
   `).join('');
 }
 
+// ---------- CSV export (exports exactly what's currently shown in the
+// product table below — same filters, same sort, same rows) ----------
+function downloadCSV(filename, header, rows) {
+  const escape = (v) => {
+    const s = (v === null || v === undefined) ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [header, ...rows].map(r => r.map(escape).join(','));
+  const csv = '\uFEFF' + lines.join('\r\n'); // UTF-8 BOM so Excel opens non-ASCII text correctly
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportTableCSV() {
+  const header = ['Platform', 'Brand', 'Product Name', 'Config', 'Lowest Price (AED)', 'Old Price (AED)', 'Seller', 'SKU', 'URL'];
+  const rows = lastTableRows.map(p => [
+    p.platform,
+    brandLabel(p.brand),
+    p.model_name,
+    configLabel(p.config),
+    (p.lowest_price !== null && p.lowest_price !== undefined) ? Number(p.lowest_price).toFixed(2) : '',
+    (p.old_price !== null && p.old_price !== undefined) ? Number(p.old_price).toFixed(2) : '',
+    p.lowest_seller || '',
+    p.sku,
+    p.product_url,
+  ]);
+  const today = new Date().toISOString().slice(0, 10);
+  downloadCSV(`uae_phone_prices_${today}.csv`, header, rows);
+}
+
 function wireFilterEvents() {
   document.getElementById('reset-btn').addEventListener('click', () => {
     state.platform = []; state.brand = []; state.product = [];
     render();
   });
+  document.getElementById('export-btn').addEventListener('click', exportTableCSV);
   document.querySelectorAll('thead th[data-key]').forEach(th => {
     th.addEventListener('click', () => {
       // Clicking "Product Name" re-enters the grouped brand->product->config
